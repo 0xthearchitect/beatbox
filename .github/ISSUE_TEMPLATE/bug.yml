@@ -1,0 +1,37 @@
+name: Something broke
+description: BeatBox did something wrong, or didn't do what it should.
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      placeholder: |
+        1. Open Network
+        2. ...
+  - type: input
+    id: version
+    attributes:
+      label: BeatBox version
+      description: Settings → About.
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      placeholder: Ubuntu 24.04, Windows 11, ...
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The end of `beatboxd.log`, in the `.beatbox` folder in your home folder. Check it for anything you'd rather not share.
+      render: text
