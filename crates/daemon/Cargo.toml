@@ -1,0 +1,20 @@
+[package]
+name = "beatboxd"
+description = "The process that owns the sandboxes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+beatbox-api.workspace = true
+beatbox-contract.workspace = true
+serde_json.workspace = true
+log.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "beatboxd"
+path = "src/main.rs"

@@ -1,0 +1,397 @@
+{
+  "records": {
+    "sbx-000000000001": [
+      {
+        "after": "sandbox.created",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            }
+          },
+          "lifecycle": "created",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.started",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            }
+          },
+          "lifecycle": "running",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.paused",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            }
+          },
+          "lifecycle": "paused",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.resumed",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            }
+          },
+          "lifecycle": "running",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.stopped",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            }
+          },
+          "lifecycle": "stopped",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.reconfigured",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 2.0,
+              "memory": 4096.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "files": {},
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            }
+          },
+          "lifecycle": "stopped",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.reset",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 2.0,
+              "memory": 4096.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "files": {},
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            }
+          },
+          "lifecycle": "created",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.destroyed",
+        "record": null
+      }
+    ],
+    "sbx-000000000002": [
+      {
+        "after": "sandbox.created",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000002",
+            "type": "mock",
+            "name": "stubborn",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "stubborn",
+            "resources": {
+              "cpu": 1.0,
+              "memory": 512.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "refuse": [
+                "start"
+              ],
+              "fatal": true,
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0002"
+            }
+          },
+          "lifecycle": "created",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.failed",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000002",
+            "type": "mock",
+            "name": "stubborn",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "stubborn",
+            "resources": {
+              "cpu": 1.0,
+              "memory": 512.0
+            },
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "refuse": [
+                "start"
+              ],
+              "fatal": true,
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0002"
+            }
+          },
+          "lifecycle": "failed",
+          "reason": {
+            "code": "engine.mock_refused",
+            "values": {
+              "step": "start"
+            }
+          }
+        }
+      }
+    ],
+    "sbx-000000000003": [
+      {
+        "after": "sandbox.created",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000003",
+            "type": "mock",
+            "name": "doomed",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "doomed",
+            "resources": {},
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0003"
+            }
+          },
+          "lifecycle": "created",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.started",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000003",
+            "type": "mock",
+            "name": "doomed",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "doomed",
+            "resources": {},
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0003"
+            }
+          },
+          "lifecycle": "running",
+          "reason": null
+        }
+      },
+      {
+        "after": "sandbox.failed",
+        "record": {
+          "identity": {
+            "id": "sbx-000000000003",
+            "type": "mock",
+            "name": "doomed",
+            "version": "1"
+          },
+          "config": {
+            "type": "mock",
+            "name": "doomed",
+            "resources": {},
+            "isolation": {
+              "level": "none",
+              "options": {}
+            },
+            "settings": {
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0003"
+            }
+          },
+          "lifecycle": "failed",
+          "reason": {
+            "code": "engine.sandbox_lost",
+            "values": {
+              "type": "mock"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "dns",
+  "version": "1",
+  "name": "DNS",
+  "description": "Answers A questions for the names it is given, from the Server's own node on the network. While it runs, its names also go into the network's own DNS, so every machine finds them without being configured. Run by BeatBox itself: no machine needed.",
+  "author": "BeatBox",
+  "runtime": {"type": "internal", "implementation": "dns"},
+  "interfaces": [{"transport": "udp", "port": 53, "protocol": "dns"}],
+  "health": {"type": "internal"},
+  "capabilities": [
+    {
+      "capability": "dns.record.add",
+      "inputs": [{"name": "name", "kind": "text"}, {"name": "address", "kind": "text"}],
+      "outputs": [{"name": "name", "kind": "text"}, {"name": "address", "kind": "text"}]
+    },
+    {
+      "capability": "dns.record.remove",
+      "inputs": [{"name": "name", "kind": "text"}],
+      "outputs": [{"name": "name", "kind": "text"}]
+    },
+    {
+      "capability": "dns.resolve",
+      "inputs": [{"name": "name", "kind": "text"}],
+      "outputs": [{"name": "name", "kind": "text"}, {"name": "address", "kind": "text", "required": false}]
+    }
+  ]
+}

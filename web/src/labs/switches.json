@@ -1,0 +1,168 @@
+{
+  "cable_traffic": [],
+  "cidr": "10.40.0.0/24",
+  "dns": {},
+  "firewall": {
+    "answers": true,
+    "default": "allow",
+    "groups": {},
+    "names": [],
+    "rules": [],
+    "services": {}
+  },
+  "format": "beatbox-network",
+  "internet": false,
+  "nodes": [
+    {
+      "address": "10.40.0.10",
+      "addresses6": [],
+      "at": "sw1:2",
+      "light": {
+        "dhcp": false,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:28:00:0a",
+      "node": "azul1"
+    },
+    {
+      "address": "10.40.0.11",
+      "addresses6": [],
+      "at": "sw1:3",
+      "light": {
+        "dhcp": false,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:28:00:0b",
+      "node": "verde1"
+    },
+    {
+      "address": "10.40.0.12",
+      "addresses6": [],
+      "at": "sw2:2",
+      "light": {
+        "dhcp": false,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:28:00:0c",
+      "node": "azul2"
+    },
+    {
+      "address": "10.40.0.13",
+      "addresses6": [],
+      "at": "sw2:3",
+      "light": {
+        "dhcp": false,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:28:00:0d",
+      "node": "verde2"
+    }
+  ],
+  "routers": [
+    {
+      "forwards": [],
+      "hidden": [],
+      "ipv6": [],
+      "main": true,
+      "name": "gw",
+      "networks": [
+        {
+          "address": "10.40.0.1",
+          "address6": "fd00:10:40::1",
+          "cidr": "10.40.0.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:40::/64",
+          "vlan": 1
+        }
+      ],
+      "routes": []
+    }
+  ],
+  "topology": {
+    "cables": [
+      [
+        "sw1:1",
+        "sw2:1"
+      ]
+    ],
+    "devices": [
+      {
+        "kind": "router",
+        "name": "gw"
+      },
+      {
+        "kind": "switch",
+        "name": "sw1"
+      },
+      {
+        "kind": "switch",
+        "name": "sw2"
+      }
+    ],
+    "ports": {
+      "sw1:1": {
+        "allowed": [
+          10,
+          20
+        ],
+        "mode": "trunk",
+        "native": 1
+      },
+      "sw1:2": {
+        "mode": "access",
+        "vlan": 10
+      },
+      "sw1:3": {
+        "mode": "access",
+        "vlan": 20
+      },
+      "sw2:1": {
+        "allowed": [
+          10,
+          20
+        ],
+        "mode": "trunk",
+        "native": 1
+      },
+      "sw2:2": {
+        "mode": "access",
+        "vlan": 10
+      },
+      "sw2:3": {
+        "mode": "access",
+        "vlan": 20
+      }
+    }
+  },
+  "traffic": {
+    "bandwidth_kbps": 0.0,
+    "jitter_ms": 0.0,
+    "latency_ms": 0.0,
+    "loss_percent": 0.0
+  },
+  "version": 1,
+  "vlan_names": {
+    "10": "Azul",
+    "20": "Verde"
+  }
+}

@@ -1,0 +1,75 @@
+/* The one stylesheet entry: our rules (global.css) plus Tailwind for the
+   shadcn components in components/animate-ui and components/ui.
+
+   - No preflight: its reset would restyle everything global.css already styles.
+   - Layers in this order. Unlayered CSS beats every layer, so an unlayered
+     global.css wiped shadcn's utility backgrounds. Below the utilities, a
+     utility wins and bb- classes style the rest.
+   - The shadcn theme is our --bb-color-* tokens under shadcn's names. */
+
+@layer base, bb, shadcn, theme, utilities;
+
+@import './global.css' layer(bb);
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* The bits of preflight the shadcn components need: no bullets, theme border
+   colour. Lowest layer so bb- rules still win. Second selector because Sheet
+   and Tooltip portal to <body>. */
+@layer base {
+  :where([data-slot='sidebar-wrapper'], [data-slot='sidebar'], [data-slot='dropdown-menu-content']) :where(*, ::before, ::after),
+  :where([data-slot='dropdown-menu-content']) {
+    border: 0 solid var(--color-border);
+  }
+  :where([data-slot='sidebar-wrapper'], [data-slot='sidebar']) :where(ul, ol) {
+    list-style: none; margin: 0; padding: 0;
+  }
+}
+
+/* global.css makes every link violet; sidebar links should inherit the
+   sidebar's colour. Above bb, below utilities so hover/active still apply. */
+@layer shadcn {
+  [data-slot='sidebar'] a, [data-slot='breadcrumb-link'] { color: inherit; text-decoration: none; }
+}
+
+@theme inline {
+  --color-background: var(--bb-color-void);
+  --color-foreground: var(--bb-color-text);
+  --color-card: var(--bb-color-surface);
+  --color-card-foreground: var(--bb-color-text);
+  --color-popover: var(--bb-color-raised);
+  --color-popover-foreground: var(--bb-color-text);
+  --color-primary: var(--bb-color-action);
+  --color-primary-foreground: var(--bb-color-action-ink);
+  --color-secondary: var(--bb-color-raised);
+  --color-secondary-foreground: var(--bb-color-text);
+  --color-muted: var(--bb-color-raised);
+  --color-muted-foreground: var(--bb-color-text-muted);
+  --color-accent: var(--bb-color-hover);
+  --color-accent-foreground: var(--bb-color-text);
+  --color-destructive: var(--bb-color-rose);
+  --color-border: var(--bb-color-line-strong);
+  --color-input: var(--bb-color-line-strong);
+  --color-ring: var(--bb-color-violet-lift);
+
+  --color-sidebar: var(--bb-color-surface);
+  --color-sidebar-foreground: var(--bb-color-text);
+  --color-sidebar-primary: var(--bb-color-violet);
+  --color-sidebar-primary-foreground: var(--bb-color-text);
+  --color-sidebar-accent: var(--bb-color-sunken);
+  --color-sidebar-accent-foreground: var(--bb-color-text);
+  --color-sidebar-border: var(--bb-color-line-strong);
+  --color-sidebar-ring: var(--bb-color-violet-lift);
+
+  --radius-sm: var(--bb-radius-sm);
+  --radius-md: var(--bb-radius-md);
+  --radius-lg: var(--bb-radius-lg);
+  --radius-xl: var(--bb-radius-xl);
+
+  --font-sans: var(--bb-font-body);
+  --font-mono: var(--bb-font-mono);
+}
+
+/* The rail is fixed to the viewport (`inset-y-0 h-svh`); start it below our
+   title bar. Unlayered to beat the utilities. */
+[data-slot='sidebar-container'] { top: var(--bb-titlebar-height); height: calc(100svh - var(--bb-titlebar-height)); }

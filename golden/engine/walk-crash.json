@@ -1,0 +1,379 @@
+{
+  "types": [
+    {
+      "name": "mock",
+      "version": "1",
+      "capabilities": [
+        "filesystem.list",
+        "filesystem.read",
+        "filesystem.write",
+        "lifecycle.pause",
+        "lifecycle.reconfigure",
+        "lifecycle.reset",
+        "process.execute",
+        "process.list",
+        "snapshot.create",
+        "snapshot.restore"
+      ],
+      "isolation": "none"
+    }
+  ],
+  "providing_process_execute": [
+    "mock"
+  ],
+  "created": {
+    "identity": {
+      "id": "sbx-000000000001",
+      "type": "mock",
+      "name": "windows-client",
+      "version": "1"
+    },
+    "config": {
+      "type": "mock",
+      "name": "windows-client",
+      "resources": {
+        "cpu": 4.0,
+        "memory": 8192.0
+      },
+      "isolation": {
+        "level": "none",
+        "options": {}
+      },
+      "settings": {
+        "files": {
+          "/etc/hosts": "127.0.0.1 localhost"
+        }
+      }
+    },
+    "state": {
+      "lifecycle": "created",
+      "since": "2026-09-24T12:00:00+00:00",
+      "reason": null,
+      "resources": {},
+      "facts": {
+        "running": false,
+        "processes": [],
+        "files": 1,
+        "snapshots": []
+      }
+    }
+  },
+  "started": {
+    "lifecycle": "running",
+    "since": "2026-09-24T12:00:03+00:00",
+    "reason": null,
+    "resources": {
+      "cpu": 0.25,
+      "memory": 64.0
+    },
+    "facts": {
+      "running": true,
+      "processes": [
+        "init"
+      ],
+      "files": 1,
+      "snapshots": []
+    }
+  },
+  "outcomes": [
+    {
+      "action": {
+        "capability": "process.execute",
+        "arguments": {
+          "command": "/tmp/sample.exe"
+        }
+      },
+      "ok": true,
+      "data": {
+        "pid": 2,
+        "command": "/tmp/sample.exe",
+        "exit_code": 0
+      },
+      "reason": null
+    },
+    {
+      "action": {
+        "capability": "filesystem.write",
+        "arguments": {
+          "path": "/tmp/note",
+          "content": "it wrote something"
+        }
+      },
+      "ok": true,
+      "data": {
+        "path": "/tmp/note",
+        "bytes": 18
+      },
+      "reason": null
+    },
+    {
+      "action": {
+        "capability": "snapshot.create",
+        "arguments": {
+          "name": "before_attack"
+        }
+      },
+      "ok": true,
+      "data": {
+        "name": "before_attack",
+        "files": 2
+      },
+      "reason": null
+    },
+    {
+      "action": {
+        "capability": "filesystem.read",
+        "arguments": {
+          "path": "/tmp/note"
+        }
+      },
+      "ok": true,
+      "data": {
+        "path": "/tmp/note",
+        "content": "it wrote something"
+      },
+      "reason": null
+    },
+    {
+      "action": {
+        "capability": "filesystem.read",
+        "arguments": {
+          "path": "/tmp/nowhere"
+        }
+      },
+      "ok": false,
+      "data": {},
+      "reason": {
+        "code": "engine.no_such_file",
+        "values": {
+          "path": "/tmp/nowhere"
+        }
+      }
+    },
+    {
+      "action": {
+        "capability": "traffic.capture",
+        "arguments": {}
+      },
+      "ok": false,
+      "data": {},
+      "reason": {
+        "code": "engine.unsupported",
+        "values": {
+          "capability": "traffic.capture"
+        }
+      }
+    }
+  ],
+  "before_asking": "running",
+  "after_asking": {
+    "lifecycle": "failed",
+    "since": "2026-09-24T12:00:15+00:00",
+    "reason": {
+      "code": "engine.sandbox_lost",
+      "values": {
+        "type": "mock"
+      }
+    },
+    "resources": {},
+    "facts": {}
+  },
+  "reset": {
+    "lifecycle": "created",
+    "since": "2026-09-24T12:00:17+00:00",
+    "reason": null,
+    "resources": {},
+    "facts": {
+      "running": false,
+      "processes": [],
+      "files": 1,
+      "snapshots": []
+    }
+  },
+  "destroyed": {
+    "lifecycle": "destroyed",
+    "since": "2026-09-24T12:00:19+00:00",
+    "reason": null,
+    "resources": {},
+    "facts": {}
+  },
+  "ledger_after": {},
+  "published": 16,
+  "events": [
+    {
+      "name": "sandbox.created",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:01+00:00",
+      "sequence": 1,
+      "data": {
+        "type": "mock",
+        "name": "windows-client",
+        "version": "1",
+        "isolation": "none",
+        "capabilities": [
+          "filesystem.list",
+          "filesystem.read",
+          "filesystem.write",
+          "lifecycle.pause",
+          "lifecycle.reconfigure",
+          "lifecycle.reset",
+          "process.execute",
+          "process.list",
+          "snapshot.create",
+          "snapshot.restore"
+        ]
+      }
+    },
+    {
+      "name": "process.created",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:02+00:00",
+      "sequence": 2,
+      "data": {
+        "pid": 1,
+        "command": "init"
+      }
+    },
+    {
+      "name": "sandbox.started",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:04+00:00",
+      "sequence": 3,
+      "data": {}
+    },
+    {
+      "name": "process.created",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:05+00:00",
+      "sequence": 4,
+      "data": {
+        "pid": 2,
+        "command": "/tmp/sample.exe"
+      }
+    },
+    {
+      "name": "process.exited",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:06+00:00",
+      "sequence": 5,
+      "data": {
+        "pid": 2,
+        "command": "/tmp/sample.exe",
+        "exit_code": 0
+      }
+    },
+    {
+      "name": "sandbox.action",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:07+00:00",
+      "sequence": 6,
+      "data": {
+        "capability": "process.execute",
+        "ok": true
+      }
+    },
+    {
+      "name": "file.created",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:08+00:00",
+      "sequence": 7,
+      "data": {
+        "path": "/tmp/note",
+        "bytes": 18
+      }
+    },
+    {
+      "name": "sandbox.action",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:09+00:00",
+      "sequence": 8,
+      "data": {
+        "capability": "filesystem.write",
+        "ok": true
+      }
+    },
+    {
+      "name": "snapshot.created",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:10+00:00",
+      "sequence": 9,
+      "data": {
+        "name": "before_attack",
+        "files": 2
+      }
+    },
+    {
+      "name": "sandbox.action",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:11+00:00",
+      "sequence": 10,
+      "data": {
+        "capability": "snapshot.create",
+        "ok": true
+      }
+    },
+    {
+      "name": "sandbox.action",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:12+00:00",
+      "sequence": 11,
+      "data": {
+        "capability": "filesystem.read",
+        "ok": true
+      }
+    },
+    {
+      "name": "sandbox.action",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:13+00:00",
+      "sequence": 12,
+      "data": {
+        "capability": "filesystem.read",
+        "ok": false,
+        "reason": "engine.no_such_file",
+        "values": {
+          "path": "/tmp/nowhere"
+        }
+      }
+    },
+    {
+      "name": "sandbox.refused",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:14+00:00",
+      "sequence": 13,
+      "data": {
+        "capability": "traffic.capture",
+        "reason": "engine.unsupported",
+        "values": {
+          "capability": "traffic.capture"
+        }
+      }
+    },
+    {
+      "name": "sandbox.failed",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:16+00:00",
+      "sequence": 14,
+      "data": {
+        "reason": "engine.sandbox_lost",
+        "values": {
+          "type": "mock"
+        }
+      }
+    },
+    {
+      "name": "sandbox.reset",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:18+00:00",
+      "sequence": 15,
+      "data": {}
+    },
+    {
+      "name": "sandbox.destroyed",
+      "sandbox_id": "sbx-000000000001",
+      "at": "2026-09-24T12:00:20+00:00",
+      "sequence": 16,
+      "data": {}
+    }
+  ]
+}

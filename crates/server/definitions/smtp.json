@@ -1,0 +1,105 @@
+{
+  "id": "smtp",
+  "version": "3",
+  "name": "Email",
+  "description": "Receives lab email over SMTP and shows it in a web inbox. Messages are kept across restarts. Needs Mailpit 1.26.2 or newer in the guest; external delivery is not configured. Can accept any SMTP login, for applications that insist on signing in.",
+  "author": "BeatBox",
+  "runtime": {
+    "type": "process",
+    "command": [
+      "mailpit",
+      "--smtp",
+      "0.0.0.0:{port}",
+      "--listen",
+      "0.0.0.0:{web_port}",
+      "--database",
+      "/var/lib/beatbox/{_id}/mailpit.db",
+      "--disable-version-check",
+      "--smtp-auth-accept-any={accept_any_login}",
+      "--smtp-auth-allow-insecure={accept_any_login}"
+    ]
+  },
+  "requires": [
+    "mailpit",
+    "bash"
+  ],
+  "configuration": {
+    "port": {
+      "kind": "number",
+      "default": 1025
+    },
+    "web_port": {
+      "kind": "number",
+      "default": 8025
+    },
+    "accept_any_login": {
+      "kind": "bool",
+      "default": false
+    }
+  },
+  "interfaces": [
+    {
+      "transport": "tcp",
+      "port": "{port}",
+      "protocol": "smtp"
+    },
+    {
+      "transport": "tcp",
+      "port": "{web_port}",
+      "protocol": "http"
+    }
+  ],
+  "files": [
+    {
+      "path": "/var/lib/beatbox/{_id}/README.txt",
+      "content": "Mailpit stores this service's lab messages in mailpit.db.\n"
+    },
+    {
+      "path": "/etc/beatbox/{_id}/inbox-check.sh",
+      "content": "# Whether the lab inbox on port $1 holds a message matching $2, in\n# Mailpit's own search words (to:ana@lab subject:\"Reset\" ...; empty for\n# any message). Exit 0 when one does, 1 when none does, 2 when the inbox\n# cannot be asked. Bash alone: the guest is only promised bash and mailpit.\nset -u\nexport LC_ALL=C\nport=$1\nsearch=$2\nencode() {\n  local text=$1 out= char i\n  for ((i = 0; i < ${#text}; i++)); do\n    char=${text:i:1}\n    case $char in\n      [a-zA-Z0-9.~_-]) out+=$char ;;\n      *) printf -v char '%%%02X' \"'$char\"; out+=$char ;;\n    esac\n  done\n  printf '%s' \"$out\"\n}\nif [ -n \"$search\" ]; then\n  path=\"/api/v1/search?query=$(encode \"$search\")&limit=1\"\nelse\n  path=\"/api/v1/messages?limit=1\"\nfi\nif ! { exec 3<>\"/dev/tcp/127.0.0.1/$port\"; } 2>/dev/null; then\n  echo \"The inbox does not answer on port $port.\" >&2\n  exit 2\nfi\nprintf 'GET %s HTTP/1.0\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' \"$path\" >&3\nreply=$(cat <&3)\nbody=${reply#*$'\\r\\n\\r\\n'}\ncount='\"messages_count\":([0-9]+)'\nif [[ ${reply%%$'\\r'*} != HTTP/*' 200'* || ! $body =~ $count ]]; then\n  echo \"The inbox gave an unexpected answer: ${reply%%$'\\r'*}\" >&2\n  exit 2\nfi\ncount=${BASH_REMATCH[1]}\nif [ \"$count\" -eq 0 ]; then\n  echo \"No message matches.\"\n  exit 1\nfi\nsubject='\"Subject\":\"(([^\"\\\\]|\\\\.)*)\"'\nto='\"To\":\\[\\{\"Name\":\"([^\"\\\\]|\\\\.)*\",\"Address\":\"(([^\"\\\\]|\\\\.)*)\"'\n[[ $body =~ $subject ]] && subject=${BASH_REMATCH[1]} || subject=\n[[ $body =~ $to ]] && to=${BASH_REMATCH[2]} || to=\necho \"$count matching message(s). Newest: \\\"${subject//\\\\\\\"/\\\"}\\\"${to:+ to $to}\"\n"
+    }
+  ],
+  "health": {
+    "type": "command",
+    "command": [
+      "bash",
+      "-c",
+      "exec 3<>/dev/tcp/127.0.0.1/\"$1\" || exit 1; IFS= read -r greeting <&3; case \"$greeting\" in '220 '*) ;; *) exit 1;; esac; exec 4<>/dev/tcp/127.0.0.1/\"$2\" || exit 1; printf 'GET / HTTP/1.0\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&4; IFS= read -r status <&4; case \"$status\" in HTTP/*' '[23][0-9][0-9]*) exit 0;; *) exit 1;; esac",
+      "bash",
+      "{port}",
+      "{web_port}"
+    ]
+  },
+  "capabilities": [
+    {
+      "capability": "email.received",
+      "inputs": [
+        {
+          "name": "search",
+          "kind": "text",
+          "required": false
+        }
+      ],
+      "outputs": [
+        {
+          "name": "exit_code",
+          "kind": "number"
+        },
+        {
+          "name": "stdout",
+          "kind": "text"
+        },
+        {
+          "name": "stderr",
+          "kind": "text"
+        }
+      ],
+      "run": [
+        "bash",
+        "/etc/beatbox/{_id}/inbox-check.sh",
+        "{web_port}",
+        "{search}"
+      ]
+    }
+  ]
+}

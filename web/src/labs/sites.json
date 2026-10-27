@@ -1,0 +1,236 @@
+{
+  "cable_traffic": [],
+  "cidr": "10.50.1.0/24",
+  "dns": {},
+  "firewall": {
+    "answers": true,
+    "default": "allow",
+    "groups": {},
+    "names": [],
+    "rules": [],
+    "services": {}
+  },
+  "format": "beatbox-network",
+  "internet": true,
+  "nodes": [
+    {
+      "address": "10.50.1.10",
+      "addresses6": [],
+      "at": "sw1:0",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:32:01:0a",
+      "node": "pc-sede"
+    },
+    {
+      "address": "10.50.1.11",
+      "addresses6": [],
+      "at": "sw1:2",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": true,
+        "gateway": null,
+        "kind": "server",
+        "ping": true,
+        "web": true
+      },
+      "mac": "02:bb:0a:32:01:0b",
+      "node": "srv-sede"
+    },
+    {
+      "address": "10.50.2.10",
+      "addresses6": [],
+      "at": "sw2:2",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:32:02:0a",
+      "node": "pc-filial"
+    },
+    {
+      "address": "10.50.2.11",
+      "addresses6": [],
+      "at": "sw2:3",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": true,
+        "gateway": null,
+        "kind": "server",
+        "ping": true,
+        "web": true
+      },
+      "mac": "02:bb:0a:32:02:0b",
+      "node": "srv-filial"
+    }
+  ],
+  "routers": [
+    {
+      "forwards": [],
+      "hidden": [],
+      "ipv6": [],
+      "main": true,
+      "name": "gw",
+      "networks": [
+        {
+          "address": "10.50.1.1",
+          "address6": "fd00:10:50:1::1",
+          "cidr": "10.50.1.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:50:1::/64",
+          "vlan": 1
+        },
+        {
+          "address": "10.50.100.1",
+          "address6": "fd00:10:50:100::1",
+          "cidr": "10.50.100.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:50:100::/64",
+          "vlan": 100
+        }
+      ],
+      "routes": [
+        {
+          "to": "10.50.2.0/24",
+          "via": "10.50.100.2"
+        }
+      ]
+    },
+    {
+      "forwards": [
+        {
+          "id": "f1",
+          "port": 8080,
+          "protocol": "tcp",
+          "quiet_ms": 7,
+          "to": "srv-filial",
+          "to_port": 80,
+          "uses": 1
+        }
+      ],
+      "hidden": [
+        2
+      ],
+      "ipv6": [],
+      "main": false,
+      "name": "r2",
+      "networks": [
+        {
+          "address": "10.50.2.1",
+          "address6": "fd00:10:50:2::1",
+          "cidr": "10.50.2.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:50:2::/64",
+          "vlan": 2
+        },
+        {
+          "address": "10.50.100.2",
+          "address6": "fd00:10:50:100::1",
+          "cidr": "10.50.100.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:50:100::/64",
+          "vlan": 100
+        }
+      ],
+      "routes": [
+        {
+          "to": "0.0.0.0/0",
+          "via": "10.50.100.1"
+        }
+      ]
+    }
+  ],
+  "topology": {
+    "cables": [
+      [
+        "gw:1",
+        "sw1:1"
+      ],
+      [
+        "gw:2",
+        "r2:1"
+      ],
+      [
+        "r2:2",
+        "sw2:1"
+      ]
+    ],
+    "devices": [
+      {
+        "kind": "router",
+        "name": "gw"
+      },
+      {
+        "kind": "router",
+        "name": "r2"
+      },
+      {
+        "kind": "switch",
+        "name": "sw1"
+      },
+      {
+        "kind": "switch",
+        "name": "sw2"
+      }
+    ],
+    "ports": {
+      "gw:2": {
+        "mode": "access",
+        "vlan": 100
+      },
+      "r2:1": {
+        "mode": "access",
+        "vlan": 100
+      },
+      "r2:2": {
+        "mode": "access",
+        "vlan": 2
+      },
+      "sw2:1": {
+        "mode": "access",
+        "vlan": 2
+      },
+      "sw2:2": {
+        "mode": "access",
+        "vlan": 2
+      },
+      "sw2:3": {
+        "mode": "access",
+        "vlan": 2
+      },
+      "sw2:4": {
+        "mode": "access",
+        "vlan": 2
+      },
+      "sw2:5": {
+        "mode": "access",
+        "vlan": 2
+      }
+    }
+  },
+  "traffic": {
+    "bandwidth_kbps": 0.0,
+    "jitter_ms": 0.0,
+    "latency_ms": 0.0,
+    "loss_percent": 0.0
+  },
+  "version": 1,
+  "vlan_names": {
+    "100": "Ligação",
+    "2": "Filial"
+  }
+}

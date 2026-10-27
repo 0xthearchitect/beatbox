@@ -1,0 +1,112 @@
+{
+  "id": "nginx",
+  "version": "5",
+  "name": "nginx",
+  "description": "Serves a folder, or passes visitors on to a web application, using nginx. Can also answer HTTPS with a self-signed certificate. Requires nginx and Python 3 (and openssl for HTTPS). Validates configuration before starting and keeps PID and logs separate for each instance.",
+  "author": "BeatBox",
+  "runtime": {
+    "type": "process",
+    "command": [
+      "python3",
+      "/etc/beatbox/{_id}/nginx-run.py",
+      "serve",
+      "{mode}",
+      "{root}",
+      "{upstream}",
+      "{port}",
+      "{https_port}",
+      "/etc/beatbox/{_id}/nginx.conf",
+      "{_tls}"
+    ]
+  },
+  "requires": [
+    "nginx",
+    "python3"
+  ],
+  "configuration": {
+    "mode": {
+      "kind": "enum",
+      "values": [
+        "folder",
+        "proxy"
+      ],
+      "default": "folder"
+    },
+    "root": {
+      "kind": "text",
+      "default": "/var/www/html"
+    },
+    "upstream": {
+      "kind": "text",
+      "default": "127.0.0.1:3000"
+    },
+    "port": {
+      "kind": "number",
+      "default": 80
+    },
+    "https_port": {
+      "kind": "number",
+      "default": 0
+    },
+    "health_path": {
+      "kind": "text",
+      "default": "/"
+    }
+  },
+  "interfaces": [
+    {
+      "transport": "tcp",
+      "port": "{port}",
+      "protocol": "http"
+    },
+    {
+      "transport": "tcp",
+      "port": "{https_port}",
+      "protocol": "https"
+    }
+  ],
+  "files": [
+    {
+      "path": "/etc/beatbox/{_id}/nginx-run.py",
+      "content": "\"\"\"Generate and validate an instance-local nginx configuration.\"\"\"\nimport grp\nimport json\nimport os\nfrom pathlib import Path\nimport pwd\nimport re\nimport shutil\nimport signal\nimport subprocess\nimport sys\n\n\ndef tied(parent):\n    \"\"\"For a child, run before it starts: it is sent SIGTERM when this\n    runner goes, even killed outright. An orphan would keep the port, and\n    every start after it fail.\"\"\"\n    def preexec():\n        import ctypes\n        ctypes.CDLL(None).prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG\n        if os.getppid() != parent:  # the runner went before prctl could see it\n            os._exit(1)\n    return preexec\n\n\nUPSTREAM = re.compile(r'(https?://)?[A-Za-z0-9.\\-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/%-]*)?')\n\n\ndef main():\n    operation, mode, folder, upstream, port, https_port, config, *tls = sys.argv[1:]\n    config, port, https_port = Path(config), int(port), int(https_port)\n    # The certificate's folder: the instance's own, or one its Server shares.\n    tls = Path(tls[0]) if tls else config.parent / 'tls'\n    nginx = shutil.which('nginx')\n    if not nginx:\n        return refuse('server.program_missing', service='Website', program='nginx')\n    account = worker()\n    if mode == 'proxy':\n        # Written into the configuration whole, so only what an address can\n        # hold: no spaces, quotes, braces, semicolons or variables.\n        if not UPSTREAM.fullmatch(upstream):\n            return refuse('server.nginx_bad_upstream', upstream=upstream)\n        target = upstream if '://' in upstream else 'http://' + upstream\n        site = (' location / {\\n  proxy_pass %s;\\n  proxy_http_version 1.1;\\n'\n                '  proxy_set_header Host $host;\\n  proxy_set_header X-Real-IP $remote_addr;\\n'\n                '  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\\n'\n                '  proxy_set_header X-Forwarded-Proto $scheme;\\n'\n                '  proxy_set_header Upgrade $http_upgrade;\\n'\n                '  proxy_set_header Connection $connection_upgrade;\\n }\\n' % target)\n    else:\n        root = Path(folder)\n        if not root.is_absolute():\n            return refuse('server.web_folder_absolute', folder=folder)\n        if not root.is_dir():\n            return refuse('server.web_folder_missing', folder=folder)\n        if any(char in folder for char in '\\r\\n\\0$'):\n            return refuse('server.nginx_bad_folder')\n        index = root / 'index.html'\n        if not index.is_file():\n            return refuse('server.web_index_missing', folder=folder)\n        if account and not readable_as(account, index):\n            return refuse('server.web_not_readable', folder=folder, user=account.pw_name)\n        site = ' root \"%s\";\\n' % folder.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"')\n    listen = ' listen %d;\\n' % port\n    if https_port:\n        try:\n            certificate, key = self_signed(tls)\n        except FileNotFoundError:\n            return refuse('server.program_missing', service='Website', program='openssl')\n        except subprocess.SubprocessError:\n            return refuse('server.tls_failed')\n        listen += ' listen %d ssl;\\n ssl_certificate \"%s\";\\n ssl_certificate_key \"%s\";\\n' % (https_port, certificate, key)\n    prefix = str(config.parent)\n    content = ''\n    if account:\n        content += 'user %s %s;\\n' % (account.pw_name, grp.getgrgid(account.pw_gid).gr_name)\n    content += 'pid \"%s/nginx.pid\";\\nerror_log \"%s/error.log\";\\nevents {}\\nhttp {\\n' % (prefix, prefix)\n    mime = Path('/etc/nginx/mime.types')\n    if mime.is_file():\n        content += ' include /etc/nginx/mime.types;\\n'\n    content += ' map $http_upgrade $connection_upgrade { default upgrade; \"\" close; }\\n'\n    content += ' access_log \"%s/access.log\";\\n server {\\n%s%s }\\n}\\n' % (prefix, listen, site)\n    config.parent.mkdir(parents=True, exist_ok=True)\n    candidate = config.with_suffix('.candidate.conf')\n    candidate.write_text(content, encoding='utf-8')\n    try:\n        try:\n            checked = subprocess.run([nginx, '-t', '-c', str(candidate)], capture_output=True, text=True, timeout=2)\n        except subprocess.TimeoutExpired:\n            return refuse('server.nginx_invalid_config', said='nginx -t did not finish in 2 seconds')\n        if checked.returncode:\n            lines = checked.stderr.splitlines() or ['nginx -t failed']\n            said = next((line for line in lines if '[emerg]' in line), lines[0])\n            return refuse('server.nginx_invalid_config', said=said.strip())\n        candidate.replace(config)\n    finally:\n        candidate.unlink(missing_ok=True)\n    if operation == 'check':\n        return 0\n    child = subprocess.Popen([nginx, '-c', str(config), '-g', 'daemon off;'], start_new_session=True,\n                             preexec_fn=tied(os.getpid()))\n    stopping = False\n    def stop(_signum, _frame):\n        nonlocal stopping\n        stopping = True\n        try:\n            os.killpg(child.pid, signal.SIGTERM)\n        except ProcessLookupError:\n            pass\n    signal.signal(signal.SIGTERM, stop)\n    signal.signal(signal.SIGINT, stop)\n    try:\n        while True:\n            try:\n                return child.wait(timeout=0.1)\n            except subprocess.TimeoutExpired:\n                if stopping:\n                    try:\n                        child.wait(timeout=2)\n                    except subprocess.TimeoutExpired:\n                        pass\n                    return 0\n    finally:\n        try:\n            os.killpg(child.pid, signal.SIGKILL)\n        except ProcessLookupError:\n            pass\n        child.wait()\n\n\ndef worker():\n    \"\"\"Who nginx's workers run as. Started by root with no `user`, nginx\n    falls back to nobody, and a folder only its owner can read answers 403;\n    so name the distribution's web account, and check it can read.\"\"\"\n    if os.geteuid() != 0:\n        return None\n    for name in ('www-data', 'nginx', 'http', 'nobody'):  # Debian, Fedora, Arch, any\n        try:\n            return pwd.getpwnam(name)\n        except KeyError:\n            pass\n    return None\n\n\ndef readable_as(account, path):\n    \"\"\"Whether `account` can open `path`, asked the only reliable way: try.\"\"\"\n    child = os.fork()\n    if child == 0:\n        try:\n            os.initgroups(account.pw_name, account.pw_gid)\n            os.setgid(account.pw_gid)\n            os.setuid(account.pw_uid)\n            with open(path, 'rb'):\n                pass\n            os._exit(0)\n        except BaseException:\n            os._exit(1)\n    return os.waitpid(child, 0)[1] == 0\n\n\ndef self_signed(folder):\n    \"\"\"A certificate for this machine's name, made once and kept: a browser\n    told to trust it once is not asked again after every restart.\"\"\"\n    certificate, key = folder / 'certificate.pem', folder / 'key.pem'\n    if not (certificate.is_file() and key.is_file()):\n        folder.mkdir(mode=0o700, parents=True, exist_ok=True)\n        name = os.uname().nodename or 'localhost'\n        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-nodes', '-days', '825',\n                        '-keyout', str(key), '-out', str(certificate), '-subj', '/CN=' + name,\n                        '-addext', 'subjectAltName=DNS:%s,DNS:localhost,IP:127.0.0.1' % name],\n                       check=True, capture_output=True, timeout=20)\n        key.chmod(0o600)\n    return certificate, key\n\n\ndef refuse(code, **values):\n    print(json.dumps(dict(code=code, values=values)), flush=True)\n    return 1\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n"
+    }
+  ],
+  "health": {
+    "type": "http",
+    "port": "{port}",
+    "path": "{health_path}"
+  },
+  "capabilities": [
+    {
+      "capability": "nginx.test",
+      "outputs": [
+        {
+          "name": "exit_code",
+          "kind": "number"
+        },
+        {
+          "name": "stderr",
+          "kind": "text"
+        }
+      ],
+      "run": [
+        "nginx",
+        "-t",
+        "-c",
+        "/etc/beatbox/{_id}/nginx.conf"
+      ]
+    }
+  ],
+  "prepare": [
+    "python3",
+    "/etc/beatbox/{_id}/nginx-run.py",
+    "check",
+    "{mode}",
+    "{root}",
+    "{upstream}",
+    "{port}",
+    "{https_port}",
+    "/etc/beatbox/{_id}/nginx.conf",
+    "{_tls}"
+  ]
+}

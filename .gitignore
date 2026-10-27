@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Node, for web. The built bundle (web/dist/) is committed on
+# purpose, so running from source needs no Node at all; only working on the
+# interface itself does.
+node_modules
+
+.DS_Store
+
+# Rust
+target/
+
+# Tauri writes these on every build of the window (shell/).
+shell/gen/
+shell/binaries/

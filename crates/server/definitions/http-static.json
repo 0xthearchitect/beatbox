@@ -1,0 +1,100 @@
+{
+  "id": "http-static",
+  "version": "5",
+  "name": "Website",
+  "description": "Serves a simple page, an existing site folder, or a web application. Applications run with PORT and HOST set, under the Server's lifecycle and logs. Needs Python 3 and the application's own installed dependencies.",
+  "author": "BeatBox",
+  "runtime": {
+    "type": "process",
+    "command": [
+      "python3",
+      "/etc/beatbox/{_id}/web-run.py",
+      "serve",
+      "{mode}",
+      "{root}",
+      "{page}",
+      "{port}",
+      "{command}",
+      "{health_path}",
+      "/var/lib/beatbox/{_id}/page",
+      "{https_port}",
+      "{_tls}"
+    ]
+  },
+  "requires": [
+    "python3"
+  ],
+  "configuration": {
+    "mode": {
+      "kind": "enum",
+      "values": [
+        "page",
+        "folder",
+        "application"
+      ],
+      "default": "page"
+    },
+    "command": {
+      "kind": "text",
+      "default": ""
+    },
+    "health_path": {
+      "kind": "text",
+      "default": "/"
+    },
+    "port": {
+      "kind": "number",
+      "default": 80
+    },
+    "root": {
+      "kind": "text",
+      "default": "/srv/www"
+    },
+    "page": {
+      "kind": "text",
+      "default": "<h1>It works</h1>"
+    },
+    "https_port": {
+      "kind": "number",
+      "default": 0
+    }
+  },
+  "interfaces": [
+    {
+      "transport": "tcp",
+      "port": "{port}",
+      "protocol": "http"
+    },
+    {
+      "transport": "tcp",
+      "port": "{https_port}",
+      "protocol": "https"
+    }
+  ],
+  "files": [
+    {
+      "path": "/etc/beatbox/{_id}/web-run.py",
+      "content": "\"\"\"Runner embedded in the Website definition. No shell evaluates settings.\"\"\"\nimport functools\nimport http.server\nimport json\nimport os\nfrom pathlib import Path\nimport pwd\nimport shlex\nimport shutil\nimport signal\nimport ssl\nimport subprocess\nimport sys\nimport threading\n\n\ndef tied(parent):\n    \"\"\"For a child, run before it starts: it is sent SIGTERM when this\n    runner goes, even killed outright. An orphan would keep the port, and\n    every start after it fail.\"\"\"\n    def preexec():\n        import ctypes\n        ctypes.CDLL(None).prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG\n        if os.getppid() != parent:  # the runner went before prctl could see it\n            os._exit(1)\n    return preexec\n\n\nclass Refused(Exception):\n    def __init__(self, code, **values):\n        self.reason = dict(code=code, values=dict((k, str(v)) for k, v in values.items()))\n\n\ndef prepare(mode, root, port, command, health_path, https_port=0, tls=None):\n    if not health_path.startswith('/') or any(c in health_path for c in '\\r\\n'):\n        raise Refused('server.web_health_path_invalid')\n    if https_port:\n        if mode == 'application':\n            raise Refused('server.web_https_application')\n        try:\n            self_signed(tls)\n        except FileNotFoundError:\n            raise Refused('server.program_missing', service='Website', program='openssl') from None\n        except subprocess.SubprocessError:\n            raise Refused('server.tls_failed') from None\n    if mode == 'page':\n        return None\n    if not root.is_absolute():\n        raise Refused('server.web_folder_absolute', folder=root)\n    if not root.is_dir():\n        raise Refused('server.web_folder_missing', folder=root)\n    # Checked at /, a folder without its index.html can only ever answer 404.\n    if mode == 'folder' and health_path == '/' and not (root / 'index.html').is_file():\n        raise Refused('server.web_index_missing', folder=root)\n    if mode == 'application':\n        try:\n            words = shlex.split(command.replace('{' + 'port' + '}', str(port)))\n        except ValueError:\n            raise Refused('server.web_command_invalid') from None\n        if not words:\n            raise Refused('server.web_command_missing')\n        program = words[0]\n        found = (root / program) if '/' in program else shutil.which(program)\n        if not found or not Path(found).is_file() or not os.access(found, os.X_OK):\n            raise Refused('server.program_missing', service='Website', program=program)\n        return words\n    account = visitor()\n    index = root / 'index.html'\n    if account and index.is_file() and not readable_as(account, index):\n        raise Refused('server.web_not_readable', folder=root, user=account.pw_name)\n    return None\n\n\ndef self_signed(folder):\n    \"\"\"A certificate for this machine's name, made once and kept: a browser\n    told to trust it once is not asked again after every restart.\"\"\"\n    certificate, key = folder / 'certificate.pem', folder / 'key.pem'\n    if not (certificate.is_file() and key.is_file()):\n        folder.mkdir(mode=0o700, parents=True, exist_ok=True)\n        name = os.uname().nodename or 'localhost'\n        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1',\n                        '-nodes', '-days', '825', '-keyout', str(key), '-out', str(certificate), '-subj', '/CN=' + name,\n                        '-addext', 'subjectAltName=DNS:%s,DNS:localhost,IP:127.0.0.1' % name],\n                       check=True, capture_output=True, timeout=20)\n        key.chmod(0o600)\n    return certificate, key\n\n\nclass Secure(http.server.ThreadingHTTPServer):\n    \"\"\"HTTPS: the handshake in each request's own thread, so one slow or\n    plain-HTTP visitor never holds up the others.\"\"\"\n    context = None\n\n    def finish_request(self, request, client_address):\n        try:\n            request = self.context.wrap_socket(request, server_side=True)\n        except (ssl.SSLError, OSError):\n            return\n        super().finish_request(request, client_address)\n\n\ndef visitor():\n    \"\"\"Who serves the files once the port is open. Started as root, a web\n    server that stays root hands any file it can be tricked into to anyone\n    on the network; so it becomes the distribution's web account.\"\"\"\n    if os.geteuid() != 0:\n        return None\n    for name in ('www-data', 'nginx', 'http', 'nobody'):  # Debian, Fedora, Arch, any\n        try:\n            return pwd.getpwnam(name)\n        except KeyError:\n            pass\n    return None\n\n\ndef become(account):\n    os.setgroups([])\n    os.setgid(account.pw_gid)\n    os.setuid(account.pw_uid)\n\n\ndef readable_as(account, path):\n    \"\"\"Whether `account` can open `path`, asked the only reliable way: try.\"\"\"\n    child = os.fork()\n    if child == 0:\n        try:\n            become(account)\n            with open(path, 'rb'):\n                pass\n            os._exit(0)\n        except BaseException:\n            os._exit(1)\n    return os.waitpid(child, 0)[1] == 0\n\n\nclass Files(http.server.SimpleHTTPRequestHandler):\n    def list_directory(self, path):\n        self.send_error(404, 'No index.html in this folder')\n        return None\n\n    def translate_path(self, path):\n        target = Path(super().translate_path(path)).resolve()\n        if not target.is_relative_to(Path(self.directory).resolve()):\n            return str(Path(self.directory) / '.beatbox-unavailable')\n        return str(target)\n\n\ndef application(words, root, port):\n    # Keep the runner's identity stable for the Server's process checks.\n    env = dict(os.environ, PORT=str(port), HOST='0.0.0.0')\n    child = None\n    stopping = False\n\n    def stop(signum, frame):\n        nonlocal stopping\n        stopping = True\n        if child is not None:\n            try:\n                os.killpg(child.pid, signal.SIGTERM)\n            except ProcessLookupError:\n                pass\n\n    signal.signal(signal.SIGTERM, stop)\n    signal.signal(signal.SIGINT, stop)\n    child = subprocess.Popen(words, cwd=root, env=env, start_new_session=True, preexec_fn=tied(os.getpid()))\n    if stopping:\n        stop(None, None)\n    try:\n        while True:\n            try:\n                code = child.wait(timeout=0.1)\n                return code if code >= 0 else 128 - code\n            except subprocess.TimeoutExpired:\n                if stopping:\n                    try:\n                        child.wait(timeout=2)\n                    except subprocess.TimeoutExpired:\n                        pass\n                    return 0\n    finally:\n        try:\n            os.killpg(child.pid, signal.SIGKILL)\n        except ProcessLookupError:\n            pass\n        child.wait()\n\n\ndef main():\n    operation, mode, folder, page, port, command, health_path, own, https_port, tls = sys.argv[1:]\n    root, port, https_port, tls = Path(folder), int(port), int(https_port), Path(tls)\n    try:\n        words = prepare(mode, root, port, command, health_path, https_port, tls)\n    except Refused as error:\n        print(json.dumps(error.reason), flush=True)\n        return 1\n    if operation == 'check':\n        return 0\n    if mode == 'application':\n        return application(words, root, port)\n    if mode == 'page':\n        # The service's own folder, never the one in `root`: a simple page\n        # must not write over a site someone already has there.\n        root = Path(own)\n        root.mkdir(mode=0o755, parents=True, exist_ok=True)\n        root.chmod(0o755)\n        (root / 'index.html').write_text(page + '\\n', encoding='utf-8')\n        (root / 'index.html').chmod(0o644)\n        # Its parents are BeatBox's own; the web account only has to pass\n        # through them (o+x), never list them.\n        for parent in (root.parent, root.parent.parent):\n            parent.chmod(parent.stat().st_mode | 0o001)\n    handler = functools.partial(Files, directory=str(root))\n    server = http.server.ThreadingHTTPServer(('0.0.0.0', port), handler)\n    if https_port:\n        # Bound and keyed while still root; the key stays root's to read.\n        secure = Secure(('0.0.0.0', https_port), handler)\n        secure.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)\n        secure.context.load_cert_chain(*self_signed(tls))\n        threading.Thread(target=secure.serve_forever, daemon=True).start()\n        print('Website listening for HTTPS on port %s' % https_port, flush=True)\n    account = visitor()\n    if account:\n        become(account)\n    print('Website listening on port %s' % port, flush=True)\n    server.serve_forever()\n    return 0\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n"
+    }
+  ],
+  "prepare": [
+    "python3",
+    "/etc/beatbox/{_id}/web-run.py",
+    "check",
+    "{mode}",
+    "{root}",
+    "{page}",
+    "{port}",
+    "{command}",
+    "{health_path}",
+    "/var/lib/beatbox/{_id}/page",
+    "{https_port}",
+    "{_tls}"
+  ],
+  "health": {
+    "type": "http",
+    "port": "{port}",
+    "path": "{health_path}"
+  },
+  "capabilities": []
+}

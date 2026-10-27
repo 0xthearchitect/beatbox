@@ -1,0 +1,50 @@
+# BeatBox's window: the page in the system's own webview, the person's half
+# of the contract, and the way to beatboxd. A workspace of its own: Tauri
+# brings a few hundred crates, and they are this crate's to argue (deny.toml
+# here), not the daemon's. It sees the rest of BeatBox through
+# beatbox-contract alone.
+
+[package]
+name = "beatbox"
+description = "BeatBox's window: the page, and the person's half of the contract"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+publish = false
+
+[lib]
+name = "beatbox_shell"
+path = "src/lib.rs"
+
+[[bin]]
+name = "beatbox"
+path = "src/main.rs"
+
+[features]
+# The layout check and the walk, run inside the real window. Never in a
+# package: it lets the binary drive its own page.
+proof = []
+
+[dependencies]
+beatbox-contract = { path = "../crates/contract" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+tauri = { version = "2", features = [] }
+# A message box, for the two things said before or without the page: that
+# BeatBox is already open, and that the daemon cannot be started.
+rfd = { version = "0.16", default-features = false, features = ["gtk3"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+
+[workspace]

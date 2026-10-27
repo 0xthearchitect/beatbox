@@ -1,0 +1,8 @@
+node_modules
+
+# The root .gitignore excludes every dist/ at any depth, for the PyInstaller
+# output at the top of the repo. This one is not that: the built interface is
+# committed on purpose, so that running BeatRooter from source never needs a
+# Node toolchain. CI rebuilds it and
+# fails on any difference, which is what stops it going stale.
+!dist/

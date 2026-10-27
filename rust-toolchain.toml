@@ -1,0 +1,6 @@
+# Pinned, so that CI, this machine and the Windows run build the same thing.
+# Moved forward deliberately, in a commit of its own.
+[toolchain]
+channel = "1.96.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

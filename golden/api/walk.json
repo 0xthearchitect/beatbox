@@ -1,0 +1,1874 @@
+{
+  "steps": [
+    {
+      "action": "sandbox.types",
+      "payload": {},
+      "envelope": {
+        "ok": true,
+        "data": [
+          {
+            "name": "mock",
+            "version": "1",
+            "isolation": "none",
+            "capabilities": [
+              "filesystem.list",
+              "filesystem.read",
+              "filesystem.write",
+              "lifecycle.pause",
+              "lifecycle.reconfigure",
+              "lifecycle.reset",
+              "process.execute",
+              "process.list",
+              "snapshot.create",
+              "snapshot.restore"
+            ],
+            "actions": []
+          }
+        ],
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.list",
+      "payload": {},
+      "note": "nothing yet",
+      "envelope": {
+        "ok": true,
+        "data": [],
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.create",
+      "payload": {
+        "type": "mock",
+        "name": "windows-client",
+        "cpu": 4,
+        "memory": 8192,
+        "settings": {
+          "files": {
+            "/etc/hosts": "127.0.0.1 localhost"
+          },
+          "snake_case_key": {
+            "kept_as_is": true
+          }
+        },
+        "uses": {}
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "start",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "created",
+            "since": "2026-09-24T12:00:00+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {
+              "running": false,
+              "processes": [],
+              "files": 1,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.list",
+      "payload": {},
+      "envelope": {
+        "ok": true,
+        "data": [
+          {
+            "id": "sbx-000000000001",
+            "type": "mock",
+            "name": "windows-client",
+            "lifecycle": "created",
+            "since": "2026-09-24T12:00:00+00:00"
+          }
+        ],
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.view",
+      "payload": {
+        "id": "sbx-000000000001"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "start",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "created",
+            "since": "2026-09-24T12:00:00+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {
+              "running": false,
+              "processes": [],
+              "files": 1,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "start"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "stop",
+            "pause",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "running",
+            "since": "2026-09-24T12:00:03+00:00",
+            "reason": null,
+            "resources": {
+              "cpu": 0.25,
+              "memory": 64.0
+            },
+            "facts": {
+              "running": true,
+              "processes": [
+                "init"
+              ],
+              "files": 1,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.act",
+      "payload": {
+        "id": "sbx-000000000001",
+        "capability": "process.execute",
+        "arguments": {
+          "command": "/tmp/sample.exe"
+        }
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "capability": "process.execute",
+          "ok": true,
+          "data": {
+            "pid": 2,
+            "command": "/tmp/sample.exe",
+            "exit_code": 0
+          },
+          "reason": null
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.act",
+      "payload": {
+        "id": "sbx-000000000001",
+        "capability": "filesystem.write",
+        "arguments": {
+          "path": "/tmp/note",
+          "content": "seen"
+        }
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "capability": "filesystem.write",
+          "ok": true,
+          "data": {
+            "path": "/tmp/note",
+            "bytes": 4
+          },
+          "reason": null
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.act",
+      "payload": {
+        "id": "sbx-000000000001",
+        "capability": "filesystem.read",
+        "arguments": {
+          "path": "/tmp/note"
+        }
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "capability": "filesystem.read",
+          "ok": true,
+          "data": {
+            "path": "/tmp/note",
+            "content": "seen"
+          },
+          "reason": null
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.act",
+      "payload": {
+        "id": "sbx-000000000001",
+        "capability": "snapshot.create",
+        "arguments": {
+          "name": "before_attack"
+        }
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "capability": "snapshot.create",
+          "ok": true,
+          "data": {
+            "name": "before_attack",
+            "files": 2
+          },
+          "reason": null
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.act",
+      "payload": {
+        "id": "sbx-000000000001",
+        "capability": "traffic.capture",
+        "arguments": {}
+      },
+      "note": "never declared",
+      "envelope": {
+        "ok": true,
+        "data": {
+          "capability": "traffic.capture",
+          "ok": false,
+          "data": {},
+          "reason": {
+            "code": "engine.unsupported",
+            "values": {
+              "capability": "traffic.capture"
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.refresh",
+      "payload": {
+        "id": "sbx-000000000001"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "stop",
+            "pause",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "running",
+            "since": "2026-09-24T12:00:03+00:00",
+            "reason": null,
+            "resources": {
+              "cpu": 0.25,
+              "memory": 64.0
+            },
+            "facts": {
+              "running": true,
+              "processes": [
+                "init"
+              ],
+              "files": 2,
+              "snapshots": [
+                "before_attack"
+              ]
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "pause"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "stop",
+            "resume",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "paused",
+            "since": "2026-09-24T12:00:14+00:00",
+            "reason": null,
+            "resources": {
+              "cpu": 0.25,
+              "memory": 64.0
+            },
+            "facts": {
+              "running": false,
+              "processes": [
+                "init"
+              ],
+              "files": 2,
+              "snapshots": [
+                "before_attack"
+              ]
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.reconfigure",
+      "payload": {
+        "id": "sbx-000000000001",
+        "cpu": 2,
+        "memory": 4096,
+        "settings": {}
+      },
+      "note": "refused: it is not off",
+      "envelope": {
+        "ok": false,
+        "data": null,
+        "error": {
+          "code": "refused",
+          "message": "windows-client cannot be reconfigured",
+          "reason": {
+            "code": "engine.reconfigure_not_now",
+            "values": {
+              "state": "paused"
+            }
+          }
+        }
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "resume"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "stop",
+            "pause",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "running",
+            "since": "2026-09-24T12:00:17+00:00",
+            "reason": null,
+            "resources": {
+              "cpu": 0.25,
+              "memory": 64.0
+            },
+            "facts": {
+              "running": true,
+              "processes": [
+                "init"
+              ],
+              "files": 2,
+              "snapshots": [
+                "before_attack"
+              ]
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "stop"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "start",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 4.0,
+              "memory": 8192.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {
+                "/etc/hosts": "127.0.0.1 localhost"
+              },
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "stopped",
+            "since": "2026-09-24T12:00:20+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {
+              "running": false,
+              "processes": [],
+              "files": 2,
+              "snapshots": [
+                "before_attack"
+              ]
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.reconfigure",
+      "payload": {
+        "id": "sbx-000000000001",
+        "cpu": 2,
+        "memory": 4096,
+        "settings": {
+          "files": {}
+        }
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "start",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 2.0,
+              "memory": 4096.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {},
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "stopped",
+            "since": "2026-09-24T12:00:20+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {
+              "running": false,
+              "processes": [],
+              "files": 2,
+              "snapshots": [
+                "before_attack"
+              ]
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "fail"
+      },
+      "note": "not callable",
+      "envelope": {
+        "ok": false,
+        "data": null,
+        "error": {
+          "code": "bad-payload",
+          "message": "A transition is one of: start, stop, pause, resume, reset, destroy.",
+          "reason": null
+        }
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "reset"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "start",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 2.0,
+              "memory": 4096.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {},
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "created",
+            "since": "2026-09-24T12:00:23+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {
+              "running": false,
+              "processes": [],
+              "files": 1,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "destroy"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 2.0,
+              "memory": 4096.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {},
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "destroyed",
+            "since": "2026-09-24T12:00:25+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {}
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.view",
+      "payload": {
+        "id": "sbx-000000000001"
+      },
+      "note": "destroyed is not forgotten",
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000001",
+          "type": "mock",
+          "name": "windows-client",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [],
+          "config": {
+            "type": "mock",
+            "name": "windows-client",
+            "resources": {
+              "cpu": 2.0,
+              "memory": 4096.0
+            },
+            "isolation": "none",
+            "settings": {
+              "files": {},
+              "snake_case_key": {
+                "kept_as_is": true
+              },
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "destroyed",
+            "since": "2026-09-24T12:00:25+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {}
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000001",
+        "transition": "start"
+      },
+      "note": "nothing after destroyed",
+      "envelope": {
+        "ok": false,
+        "data": null,
+        "error": {
+          "code": "refused",
+          "message": "windows-client cannot start",
+          "reason": {
+            "code": "engine.bad_transition",
+            "values": {
+              "state": "destroyed",
+              "transition": "start"
+            }
+          }
+        }
+      }
+    },
+    {
+      "action": "sandbox.view",
+      "payload": {
+        "id": "sbx-nobody"
+      },
+      "envelope": {
+        "ok": false,
+        "data": null,
+        "error": {
+          "code": "no-sandbox",
+          "message": "There is no sandbox 'sbx-nobody' here.",
+          "reason": null
+        }
+      }
+    },
+    {
+      "action": "sandbox.create",
+      "payload": {
+        "type": "mock",
+        "name": "stubborn",
+        "cpu": 1,
+        "memory": 512,
+        "settings": {
+          "refuse": [
+            "start"
+          ],
+          "fatal": true
+        },
+        "uses": {}
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000002",
+          "type": "mock",
+          "name": "stubborn",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "start",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "stubborn",
+            "resources": {
+              "cpu": 1.0,
+              "memory": 512.0
+            },
+            "isolation": "none",
+            "settings": {
+              "refuse": [
+                "start"
+              ],
+              "fatal": true,
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0002"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "created",
+            "since": "2026-09-24T12:00:28+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {
+              "running": false,
+              "processes": [],
+              "files": 0,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000002",
+        "transition": "start"
+      },
+      "note": "fatal: lost",
+      "envelope": {
+        "ok": false,
+        "data": null,
+        "error": {
+          "code": "provider",
+          "message": "stubborn could not start",
+          "reason": {
+            "code": "engine.mock_refused",
+            "values": {
+              "step": "start"
+            }
+          }
+        }
+      }
+    },
+    {
+      "action": "sandbox.view",
+      "payload": {
+        "id": "sbx-000000000002"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000002",
+          "type": "mock",
+          "name": "stubborn",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "stubborn",
+            "resources": {
+              "cpu": 1.0,
+              "memory": 512.0
+            },
+            "isolation": "none",
+            "settings": {
+              "refuse": [
+                "start"
+              ],
+              "fatal": true,
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0002"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "failed",
+            "since": "2026-09-24T12:00:30+00:00",
+            "reason": {
+              "code": "engine.mock_refused",
+              "values": {
+                "step": "start"
+              }
+            },
+            "resources": {},
+            "facts": {}
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.create",
+      "payload": {
+        "type": "mock",
+        "name": "doomed",
+        "cpu": 0,
+        "memory": 0,
+        "settings": {},
+        "uses": {}
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000003",
+          "type": "mock",
+          "name": "doomed",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "start",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "doomed",
+            "resources": {},
+            "isolation": "none",
+            "settings": {
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0003"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "created",
+            "since": "2026-09-24T12:00:32+00:00",
+            "reason": null,
+            "resources": {},
+            "facts": {
+              "running": false,
+              "processes": [],
+              "files": 0,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.transition",
+      "payload": {
+        "id": "sbx-000000000003",
+        "transition": "start"
+      },
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000003",
+          "type": "mock",
+          "name": "doomed",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "stop",
+            "pause",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "doomed",
+            "resources": {},
+            "isolation": "none",
+            "settings": {
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0003"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "running",
+            "since": "2026-09-24T12:00:35+00:00",
+            "reason": null,
+            "resources": {
+              "cpu": 0.25,
+              "memory": 64.0
+            },
+            "facts": {
+              "running": true,
+              "processes": [
+                "init"
+              ],
+              "files": 0,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.view",
+      "payload": {
+        "id": "sbx-000000000003"
+      },
+      "note": "crashed, not yet looked at",
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000003",
+          "type": "mock",
+          "name": "doomed",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "stop",
+            "pause",
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "doomed",
+            "resources": {},
+            "isolation": "none",
+            "settings": {
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0003"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "running",
+            "since": "2026-09-24T12:00:35+00:00",
+            "reason": null,
+            "resources": {
+              "cpu": 0.25,
+              "memory": 64.0
+            },
+            "facts": {
+              "running": true,
+              "processes": [
+                "init"
+              ],
+              "files": 0,
+              "snapshots": []
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.refresh",
+      "payload": {
+        "id": "sbx-000000000003"
+      },
+      "note": "looked at",
+      "envelope": {
+        "ok": true,
+        "data": {
+          "id": "sbx-000000000003",
+          "type": "mock",
+          "name": "doomed",
+          "version": "1",
+          "isolation": "none",
+          "capabilities": [
+            "filesystem.list",
+            "filesystem.read",
+            "filesystem.write",
+            "lifecycle.pause",
+            "lifecycle.reconfigure",
+            "lifecycle.reset",
+            "process.execute",
+            "process.list",
+            "snapshot.create",
+            "snapshot.restore"
+          ],
+          "transitions": [
+            "reset",
+            "destroy"
+          ],
+          "config": {
+            "type": "mock",
+            "name": "doomed",
+            "resources": {},
+            "isolation": "none",
+            "settings": {
+              "workspace": "{DIR}/beatbox-home/machines/sbx-room0003"
+            },
+            "uses": {}
+          },
+          "state": {
+            "lifecycle": "failed",
+            "since": "2026-09-24T12:00:37+00:00",
+            "reason": {
+              "code": "engine.sandbox_lost",
+              "values": {
+                "type": "mock"
+              }
+            },
+            "resources": {},
+            "facts": {}
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.create",
+      "payload": {
+        "type": "nobody",
+        "name": "x",
+        "cpu": 0,
+        "memory": 0,
+        "settings": {},
+        "uses": {}
+      },
+      "envelope": {
+        "ok": false,
+        "data": null,
+        "error": {
+          "code": "refused",
+          "message": "This sandbox cannot be created",
+          "reason": {
+            "code": "engine.unknown_type",
+            "values": {
+              "type": "nobody"
+            }
+          }
+        }
+      }
+    },
+    {
+      "action": "sandbox.events",
+      "payload": {
+        "since": 0
+      },
+      "envelope": {
+        "ok": true,
+        "data": [
+          {
+            "name": "sandbox.created",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:01+00:00",
+            "sequence": 1,
+            "data": {
+              "type": "mock",
+              "name": "windows-client",
+              "version": "1",
+              "isolation": "none",
+              "capabilities": [
+                "filesystem.list",
+                "filesystem.read",
+                "filesystem.write",
+                "lifecycle.pause",
+                "lifecycle.reconfigure",
+                "lifecycle.reset",
+                "process.execute",
+                "process.list",
+                "snapshot.create",
+                "snapshot.restore"
+              ]
+            }
+          },
+          {
+            "name": "process.created",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:02+00:00",
+            "sequence": 2,
+            "data": {
+              "pid": 1,
+              "command": "init"
+            }
+          },
+          {
+            "name": "sandbox.started",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:04+00:00",
+            "sequence": 3,
+            "data": {}
+          },
+          {
+            "name": "process.created",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:05+00:00",
+            "sequence": 4,
+            "data": {
+              "pid": 2,
+              "command": "/tmp/sample.exe"
+            }
+          },
+          {
+            "name": "process.exited",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:06+00:00",
+            "sequence": 5,
+            "data": {
+              "pid": 2,
+              "command": "/tmp/sample.exe",
+              "exit_code": 0
+            }
+          },
+          {
+            "name": "sandbox.action",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:07+00:00",
+            "sequence": 6,
+            "data": {
+              "capability": "process.execute",
+              "ok": true
+            }
+          },
+          {
+            "name": "file.created",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:08+00:00",
+            "sequence": 7,
+            "data": {
+              "path": "/tmp/note",
+              "bytes": 4
+            }
+          },
+          {
+            "name": "sandbox.action",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:09+00:00",
+            "sequence": 8,
+            "data": {
+              "capability": "filesystem.write",
+              "ok": true
+            }
+          },
+          {
+            "name": "sandbox.action",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:10+00:00",
+            "sequence": 9,
+            "data": {
+              "capability": "filesystem.read",
+              "ok": true
+            }
+          },
+          {
+            "name": "snapshot.created",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:11+00:00",
+            "sequence": 10,
+            "data": {
+              "name": "before_attack",
+              "files": 2
+            }
+          },
+          {
+            "name": "sandbox.action",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:12+00:00",
+            "sequence": 11,
+            "data": {
+              "capability": "snapshot.create",
+              "ok": true
+            }
+          },
+          {
+            "name": "sandbox.refused",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:13+00:00",
+            "sequence": 12,
+            "data": {
+              "capability": "traffic.capture",
+              "reason": "engine.unsupported",
+              "values": {
+                "capability": "traffic.capture"
+              }
+            }
+          },
+          {
+            "name": "sandbox.paused",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:15+00:00",
+            "sequence": 13,
+            "data": {}
+          },
+          {
+            "name": "sandbox.refused",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:16+00:00",
+            "sequence": 14,
+            "data": {
+              "transition": "reconfigure",
+              "reason": "engine.reconfigure_not_now",
+              "values": {
+                "state": "paused"
+              }
+            }
+          },
+          {
+            "name": "sandbox.resumed",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:18+00:00",
+            "sequence": 15,
+            "data": {}
+          },
+          {
+            "name": "process.exited",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:19+00:00",
+            "sequence": 16,
+            "data": {
+              "pid": 1,
+              "command": "init",
+              "exit_code": 137
+            }
+          },
+          {
+            "name": "sandbox.stopped",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:21+00:00",
+            "sequence": 17,
+            "data": {}
+          },
+          {
+            "name": "sandbox.reconfigured",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:22+00:00",
+            "sequence": 18,
+            "data": {
+              "config": {
+                "type": "mock",
+                "name": "windows-client",
+                "resources": {
+                  "cpu": 2.0,
+                  "memory": 4096.0
+                },
+                "isolation": {
+                  "level": "none",
+                  "options": {}
+                },
+                "settings": {
+                  "files": {},
+                  "snake_case_key": {
+                    "kept_as_is": true
+                  },
+                  "workspace": "{DIR}/beatbox-home/machines/sbx-room0001"
+                }
+              }
+            }
+          },
+          {
+            "name": "sandbox.reset",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:24+00:00",
+            "sequence": 19,
+            "data": {}
+          },
+          {
+            "name": "sandbox.destroyed",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:26+00:00",
+            "sequence": 20,
+            "data": {}
+          },
+          {
+            "name": "sandbox.refused",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:27+00:00",
+            "sequence": 21,
+            "data": {
+              "transition": "start",
+              "reason": "engine.bad_transition",
+              "values": {
+                "state": "destroyed",
+                "transition": "start"
+              }
+            }
+          },
+          {
+            "name": "sandbox.created",
+            "sandboxId": "sbx-000000000002",
+            "at": "2026-09-24T12:00:29+00:00",
+            "sequence": 22,
+            "data": {
+              "type": "mock",
+              "name": "stubborn",
+              "version": "1",
+              "isolation": "none",
+              "capabilities": [
+                "filesystem.list",
+                "filesystem.read",
+                "filesystem.write",
+                "lifecycle.pause",
+                "lifecycle.reconfigure",
+                "lifecycle.reset",
+                "process.execute",
+                "process.list",
+                "snapshot.create",
+                "snapshot.restore"
+              ]
+            }
+          },
+          {
+            "name": "sandbox.failed",
+            "sandboxId": "sbx-000000000002",
+            "at": "2026-09-24T12:00:31+00:00",
+            "sequence": 23,
+            "data": {
+              "reason": "engine.mock_refused",
+              "values": {
+                "step": "start"
+              }
+            }
+          },
+          {
+            "name": "sandbox.created",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:33+00:00",
+            "sequence": 24,
+            "data": {
+              "type": "mock",
+              "name": "doomed",
+              "version": "1",
+              "isolation": "none",
+              "capabilities": [
+                "filesystem.list",
+                "filesystem.read",
+                "filesystem.write",
+                "lifecycle.pause",
+                "lifecycle.reconfigure",
+                "lifecycle.reset",
+                "process.execute",
+                "process.list",
+                "snapshot.create",
+                "snapshot.restore"
+              ]
+            }
+          },
+          {
+            "name": "process.created",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:34+00:00",
+            "sequence": 25,
+            "data": {
+              "pid": 1,
+              "command": "init"
+            }
+          },
+          {
+            "name": "sandbox.started",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:36+00:00",
+            "sequence": 26,
+            "data": {}
+          },
+          {
+            "name": "sandbox.failed",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:38+00:00",
+            "sequence": 27,
+            "data": {
+              "reason": "engine.sandbox_lost",
+              "values": {
+                "type": "mock"
+              }
+            }
+          }
+        ],
+        "error": null
+      }
+    },
+    {
+      "action": "sandbox.events",
+      "payload": {
+        "since": 20
+      },
+      "envelope": {
+        "ok": true,
+        "data": [
+          {
+            "name": "sandbox.refused",
+            "sandboxId": "sbx-000000000001",
+            "at": "2026-09-24T12:00:27+00:00",
+            "sequence": 21,
+            "data": {
+              "transition": "start",
+              "reason": "engine.bad_transition",
+              "values": {
+                "state": "destroyed",
+                "transition": "start"
+              }
+            }
+          },
+          {
+            "name": "sandbox.created",
+            "sandboxId": "sbx-000000000002",
+            "at": "2026-09-24T12:00:29+00:00",
+            "sequence": 22,
+            "data": {
+              "type": "mock",
+              "name": "stubborn",
+              "version": "1",
+              "isolation": "none",
+              "capabilities": [
+                "filesystem.list",
+                "filesystem.read",
+                "filesystem.write",
+                "lifecycle.pause",
+                "lifecycle.reconfigure",
+                "lifecycle.reset",
+                "process.execute",
+                "process.list",
+                "snapshot.create",
+                "snapshot.restore"
+              ]
+            }
+          },
+          {
+            "name": "sandbox.failed",
+            "sandboxId": "sbx-000000000002",
+            "at": "2026-09-24T12:00:31+00:00",
+            "sequence": 23,
+            "data": {
+              "reason": "engine.mock_refused",
+              "values": {
+                "step": "start"
+              }
+            }
+          },
+          {
+            "name": "sandbox.created",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:33+00:00",
+            "sequence": 24,
+            "data": {
+              "type": "mock",
+              "name": "doomed",
+              "version": "1",
+              "isolation": "none",
+              "capabilities": [
+                "filesystem.list",
+                "filesystem.read",
+                "filesystem.write",
+                "lifecycle.pause",
+                "lifecycle.reconfigure",
+                "lifecycle.reset",
+                "process.execute",
+                "process.list",
+                "snapshot.create",
+                "snapshot.restore"
+              ]
+            }
+          },
+          {
+            "name": "process.created",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:34+00:00",
+            "sequence": 25,
+            "data": {
+              "pid": 1,
+              "command": "init"
+            }
+          },
+          {
+            "name": "sandbox.started",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:36+00:00",
+            "sequence": 26,
+            "data": {}
+          },
+          {
+            "name": "sandbox.failed",
+            "sandboxId": "sbx-000000000003",
+            "at": "2026-09-24T12:00:38+00:00",
+            "sequence": 27,
+            "data": {
+              "reason": "engine.sandbox_lost",
+              "values": {
+                "type": "mock"
+              }
+            }
+          }
+        ],
+        "error": null
+      }
+    }
+  ]
+}

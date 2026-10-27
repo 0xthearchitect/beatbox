@@ -1,0 +1,9 @@
+<!-- BeatBox's logo, and its only mark: the cube taken apart, in the violet
+     cube's three tints (cubeTone.violet in web/src/tokens). The page draws
+     the same three paths (web/src/components/Logo.tsx). The PNGs and the
+     .ico beside it are rendered from this file with rsvg-convert and magick. -->
+<svg width="750" height="750" viewBox="0 0 750 750" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" d="M693 376L541.5 638L390 376L541.5 114L693 376ZM541.5 535.323L633.695 376L541.568 216.677L449.372 376L541.5 535.323Z" fill="#38299B"/>
+<path fill-rule="evenodd" d="M70.5017 375.309L372.501 375.309L523.501 113.77L221.501 113.769L70.5017 375.309ZM159.266 324.061L342.947 324.119L434.77 165.076L251.09 165.018L159.266 324.061Z" fill="#9C8BFF"/>
+<path fill-rule="evenodd" d="M372.501 375.309L70.5017 375.309L221.5 636.849L523.499 636.849L372.501 375.309ZM159.265 426.558L342.945 426.499L434.769 585.542L251.088 585.601L159.265 426.558Z" fill="#5B4AD6"/>
+</svg>

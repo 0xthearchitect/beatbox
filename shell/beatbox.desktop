@@ -1,0 +1,11 @@
+[Desktop Entry]
+Categories={{categories}}
+{{#if comment}}
+Comment={{comment}}
+{{/if}}
+Exec={{exec}}
+StartupWMClass={{exec}}
+Icon=dev.beatrooter.beatbox
+Name={{name}}
+Terminal=false
+Type=Application

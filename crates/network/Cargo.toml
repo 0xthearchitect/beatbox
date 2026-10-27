@@ -1,0 +1,18 @@
+[package]
+name = "beatbox-network"
+description = "The network sandbox: a switch in user space that guests are cabled to"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+beatbox-engine.workspace = true
+beatbox-frame.workspace = true
+beatbox-reasons.workspace = true
+serde_json.workspace = true
+log.workspace = true
+smoltcp = { version = "0.14", default-features = false, features = ["std", "medium-ip", "medium-ethernet", "proto-ipv4", "proto-ipv6", "proto-ipv6-slaac", "iface-max-addr-count-4", "socket-tcp", "socket-udp", "socket-raw", "socket-dhcpv4"] }
+
+[lints]
+workspace = true

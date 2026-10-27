@@ -1,0 +1,346 @@
+{
+  "cable_traffic": [],
+  "cidr": "10.20.0.0/24",
+  "dns": {},
+  "firewall": {
+    "answers": true,
+    "default": "deny",
+    "groups": {},
+    "names": [],
+    "rules": [
+      {
+        "action": "allow",
+        "destination": "vlan:30",
+        "ethertype": null,
+        "family": null,
+        "icmp_type": null,
+        "id": "r1",
+        "limit": null,
+        "log": false,
+        "port": null,
+        "port_last": null,
+        "protocol": "any",
+        "service": null,
+        "source": "vlan:10",
+        "state": "any"
+      },
+      {
+        "action": "allow",
+        "destination": "intranet",
+        "ethertype": null,
+        "family": null,
+        "icmp_type": null,
+        "id": "r2",
+        "limit": null,
+        "log": false,
+        "port": 80,
+        "port_last": 80,
+        "protocol": "tcp",
+        "service": null,
+        "source": "vlan:20",
+        "state": "any"
+      },
+      {
+        "action": "allow",
+        "destination": "vlan:20",
+        "ethertype": null,
+        "family": null,
+        "icmp_type": null,
+        "id": "r3",
+        "limit": null,
+        "log": false,
+        "port": null,
+        "port_last": null,
+        "protocol": "icmp",
+        "service": null,
+        "source": "vlan:10",
+        "state": "any"
+      }
+    ],
+    "services": {}
+  },
+  "format": "beatbox-network",
+  "internet": false,
+  "nodes": [
+    {
+      "address": "10.20.10.10",
+      "addresses6": [],
+      "at": "sw1:3",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:14:0a:0a",
+      "node": "gestao1"
+    },
+    {
+      "address": "10.20.10.11",
+      "addresses6": [],
+      "at": "sw1:4",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:14:0a:0b",
+      "node": "gestao2"
+    },
+    {
+      "address": "10.20.10.12",
+      "addresses6": [],
+      "at": "sw1:5",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:14:0a:0c",
+      "node": "gestao3"
+    },
+    {
+      "address": "10.20.20.10",
+      "addresses6": [],
+      "at": "sw2:2",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:14:14:0a",
+      "node": "vendas1"
+    },
+    {
+      "address": "10.20.20.11",
+      "addresses6": [],
+      "at": "sw2:3",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:14:14:0b",
+      "node": "vendas2"
+    },
+    {
+      "address": "10.20.20.12",
+      "addresses6": [],
+      "at": "sw2:4",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:14:14:0c",
+      "node": "vendas3"
+    },
+    {
+      "address": "10.20.30.10",
+      "addresses6": [],
+      "at": "sw2:5",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": true,
+        "gateway": null,
+        "kind": "server",
+        "ping": true,
+        "web": true
+      },
+      "mac": "02:bb:0a:14:1e:0a",
+      "node": "ficheiros"
+    },
+    {
+      "address": "10.20.30.11",
+      "addresses6": [],
+      "at": "sw2:6",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": true,
+        "gateway": null,
+        "kind": "server",
+        "ping": true,
+        "web": true
+      },
+      "mac": "02:bb:0a:14:1e:0b",
+      "node": "intranet"
+    }
+  ],
+  "routers": [
+    {
+      "forwards": [],
+      "hidden": [],
+      "ipv6": [],
+      "main": true,
+      "name": "gw",
+      "networks": [
+        {
+          "address": "10.20.0.1",
+          "address6": "fd00:10:20::1",
+          "cidr": "10.20.0.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:20::/64",
+          "vlan": 1
+        },
+        {
+          "address": "10.20.10.1",
+          "address6": "fd00:10:20:10::1",
+          "cidr": "10.20.10.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:20:10::/64",
+          "vlan": 10
+        },
+        {
+          "address": "10.20.20.1",
+          "address6": "fd00:10:20:20::1",
+          "cidr": "10.20.20.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:20:20::/64",
+          "vlan": 20
+        },
+        {
+          "address": "10.20.30.1",
+          "address6": "fd00:10:20:30::1",
+          "cidr": "10.20.30.0/24",
+          "ipv6": false,
+          "prefix6": "fd00:10:20:30::/64",
+          "vlan": 30
+        }
+      ],
+      "routes": []
+    }
+  ],
+  "topology": {
+    "cables": [
+      [
+        "gw:1",
+        "sw1:1"
+      ],
+      [
+        "sw1:2",
+        "sw2:1"
+      ]
+    ],
+    "devices": [
+      {
+        "kind": "router",
+        "name": "gw"
+      },
+      {
+        "kind": "switch",
+        "name": "sw1"
+      },
+      {
+        "kind": "switch",
+        "name": "sw2"
+      }
+    ],
+    "ports": {
+      "gw:1": {
+        "allowed": [
+          10,
+          20,
+          30
+        ],
+        "mode": "trunk",
+        "native": 1
+      },
+      "sw1:1": {
+        "allowed": [
+          10,
+          20,
+          30
+        ],
+        "mode": "trunk",
+        "native": 1
+      },
+      "sw1:2": {
+        "allowed": [
+          10,
+          20,
+          30
+        ],
+        "mode": "trunk",
+        "native": 1
+      },
+      "sw1:3": {
+        "mode": "access",
+        "vlan": 10
+      },
+      "sw1:4": {
+        "mode": "access",
+        "vlan": 10
+      },
+      "sw1:5": {
+        "mode": "access",
+        "vlan": 10
+      },
+      "sw2:1": {
+        "allowed": [
+          10,
+          20,
+          30
+        ],
+        "mode": "trunk",
+        "native": 1
+      },
+      "sw2:2": {
+        "mode": "access",
+        "vlan": 20
+      },
+      "sw2:3": {
+        "mode": "access",
+        "vlan": 20
+      },
+      "sw2:4": {
+        "mode": "access",
+        "vlan": 20
+      },
+      "sw2:5": {
+        "mode": "access",
+        "vlan": 30
+      },
+      "sw2:6": {
+        "mode": "access",
+        "vlan": 30
+      }
+    }
+  },
+  "traffic": {
+    "bandwidth_kbps": 0.0,
+    "jitter_ms": 0.0,
+    "latency_ms": 0.0,
+    "loss_percent": 0.0
+  },
+  "version": 1,
+  "vlan_names": {
+    "10": "Gestão",
+    "20": "Vendas",
+    "30": "Servidores"
+  }
+}

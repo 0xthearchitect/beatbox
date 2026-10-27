@@ -1,0 +1,23 @@
+[package]
+name = "beatbox-api"
+description = "The daemon's half of the facade: one door in, one envelope out"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+beatbox-engine.workspace = true
+beatbox-host.workspace = true
+beatbox-network.workspace = true
+beatbox-server.workspace = true
+beatbox-isolation.workspace = true
+beatbox-contract.workspace = true
+beatbox-reasons.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true

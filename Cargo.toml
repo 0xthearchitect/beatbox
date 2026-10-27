@@ -1,0 +1,68 @@
+# BeatBox.
+#
+# The crate graph is a rule, not a convenience: engine cannot see QEMU,
+# isolation cannot see the engine, api cannot see the shell. deny.toml
+# enforces it (the `wrappers` under [bans]), so an arrow added here that this
+# drawing does not have fails CI rather than review.
+#
+#   reasons ◄── engine ◄── host ──► isolation ──► reasons
+#                  ▲ ▲       ▲          ▲
+#                  │ network │          │
+#                  │         │          │
+#                  └──── api ┴──────────┘ ──► contract
+#                         ▲
+#                      beatboxd
+#
+#   frame (std only) ◄── network
+#        ▲
+#   engine ◄── server
+
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# The R0 webview spike: measured, kept as the record of the measurement, and
+# out of the workspace so its few hundred crates are not this one's (plan R0).
+exclude = ["spikes"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+publish = false
+
+[workspace.dependencies]
+beatbox-reasons = { path = "crates/reasons" }
+beatbox-engine = { path = "crates/engine" }
+beatbox-isolation = { path = "crates/isolation" }
+beatbox-host = { path = "crates/host" }
+beatbox-network = { path = "crates/network" }
+beatbox-frame = { path = "crates/frame" }
+beatbox-server = { path = "crates/server" }
+beatbox-contract = { path = "crates/contract" }
+beatbox-api = { path = "crates/api" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+sha2 = "0.10"
+
+[workspace.lints.rust]
+# Every unsafe block is an FFI call somebody has to argue for, with an
+# #[allow(unsafe_code)] on it that says so. Not `forbid`: the Windows half of
+# the host OS (GlobalMemoryStatusEx, LockFileEx) has no safe way in.
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+# A daemon on somebody's laptop: small beats fast to build.
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+# Unwinding, not abort, on purpose. The engine catches a provider's panic and
+# reports it as engine.provider_failed, the way the Python caught every
+# exception there (crates/engine/src/runtime/provider.rs); with abort, one
+# provider's bug would take the daemon and every other lane down with it.

@@ -1,0 +1,163 @@
+{
+  "create_disk": [
+    [
+      "qemu-img",
+      "create",
+      "-f",
+      "qcow2",
+      "{DIR}/disks/new.qcow2",
+      "40G"
+    ]
+  ],
+  "create_overlay": [
+    [
+      "qemu-img",
+      "info",
+      "--output=json",
+      "{DIR}/disk.qcow2"
+    ],
+    [
+      "qemu-img",
+      "create",
+      "-f",
+      "qcow2",
+      "-b",
+      "{DIR}/disk.qcow2",
+      "-F",
+      "raw",
+      "{DIR}/room2/disk.qcow2"
+    ]
+  ],
+  "disk_snapshots": [
+    {
+      "case": "two-named-one-not",
+      "stdout": "{\"format\": \"qcow2\", \"snapshots\": [{\"id\": \"1\", \"name\": \"before_attack\"}, {\"id\": \"2\", \"name\": \"clean\"}, {\"id\": \"3\"}]}",
+      "argv": [
+        "qemu-img",
+        "info",
+        "--force-share",
+        "--output=json",
+        "{DIR}/room/disk.qcow2"
+      ],
+      "names": [
+        "before_attack",
+        "clean"
+      ]
+    },
+    {
+      "case": "none-taken",
+      "stdout": "{\"format\": \"qcow2\"}",
+      "argv": [
+        "qemu-img",
+        "info",
+        "--force-share",
+        "--output=json",
+        "{DIR}/room/disk.qcow2"
+      ],
+      "names": []
+    },
+    {
+      "case": "qemu-img-failed",
+      "stdout": "",
+      "argv": [
+        "qemu-img",
+        "info",
+        "--force-share",
+        "--output=json",
+        "{DIR}/room/disk.qcow2"
+      ],
+      "names": []
+    },
+    {
+      "case": "not-json",
+      "stdout": "Image: x",
+      "argv": [
+        "qemu-img",
+        "info",
+        "--force-share",
+        "--output=json",
+        "{DIR}/room/disk.qcow2"
+      ],
+      "names": []
+    }
+  ],
+  "display_available": [
+    {
+      "case": "arch-with-gtk",
+      "stdout": "Available display backend types:\nnone\ngtk\nsdl\negl-headless\ncurses\ndbus\n",
+      "available": true,
+      "argv": [
+        "qemu-system-x86_64",
+        "-display",
+        "help"
+      ]
+    },
+    {
+      "case": "debian-base",
+      "stdout": "Available display backend types:\nnone\negl-headless\ncurses\ndbus\nspice-app\n",
+      "available": false,
+      "argv": [
+        "qemu-system-x86_64",
+        "-display",
+        "help"
+      ]
+    },
+    {
+      "case": "nothing-listed",
+      "stdout": "",
+      "available": false,
+      "argv": [
+        "qemu-system-x86_64",
+        "-display",
+        "help"
+      ]
+    }
+  ],
+  "display_install_hint": [
+    {
+      "case": "ubuntu",
+      "os_release": "NAME=\"Ubuntu\"\nID=ubuntu\nID_LIKE=debian\n",
+      "hint": "sudo apt install qemu-system-gui"
+    },
+    {
+      "case": "debian",
+      "os_release": "ID=debian\n",
+      "hint": "sudo apt install qemu-system-gui"
+    },
+    {
+      "case": "fedora",
+      "os_release": "ID=fedora\n",
+      "hint": "sudo dnf install qemu-ui-gtk"
+    },
+    {
+      "case": "rocky",
+      "os_release": "ID=\"rocky\"\nID_LIKE=\"rhel centos fedora\"\n",
+      "hint": "sudo dnf install qemu-ui-gtk"
+    },
+    {
+      "case": "opensuse",
+      "os_release": "ID=\"opensuse-tumbleweed\"\nID_LIKE=\"opensuse suse\"\n",
+      "hint": "sudo zypper install qemu-ui-gtk"
+    },
+    {
+      "case": "arch",
+      "os_release": "ID=arch\n",
+      "hint": "sudo pacman -S qemu-ui-gtk"
+    },
+    {
+      "case": "unknown",
+      "os_release": "ID=gentoo\n",
+      "hint": "qemu-ui-gtk / qemu-system-gui"
+    },
+    {
+      "case": "no-os-release",
+      "os_release": null,
+      "hint": "qemu-ui-gtk / qemu-system-gui"
+    },
+    {
+      "case": "windows",
+      "os_release": null,
+      "hint": "https://qemu.weilnetz.de/w64/"
+    }
+  ]
+}

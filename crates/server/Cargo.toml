@@ -1,0 +1,18 @@
+[package]
+name = "beatbox-server"
+description = "The server sandbox: hosts services it knows nothing about, from definitions written as data"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+beatbox-engine.workspace = true
+beatbox-frame.workspace = true
+beatbox-reasons.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+
+[lints]
+workspace = true

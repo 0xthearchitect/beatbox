@@ -1,0 +1,18 @@
+[package]
+name = "beatbox-contract"
+description = "The bridge's shapes, generated from contract.json"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[build-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

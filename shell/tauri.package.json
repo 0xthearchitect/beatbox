@@ -1,0 +1,61 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb",
+      "rpm",
+      "appimage"
+    ],
+    "externalBin": [
+      "binaries/beatboxd"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "Disposable machines, on this computer",
+    "longDescription": "BeatBox makes machines from disks you already have, runs them on QEMU in an overlay of their own, and throws them away. It never downloads a disk and never writes to the one it is given.",
+    "linux": {
+      "deb": {
+        "depends": [
+          "qemu-system-x86",
+          "qemu-utils"
+        ],
+        "recommends": [
+          "qemu-system-gui"
+        ],
+        "desktopTemplate": "beatbox.desktop",
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/dev.beatrooter.beatbox.svg": "icons/BeatBox_logo.svg",
+          "/usr/share/icons/hicolor/512x512/apps/dev.beatrooter.beatbox.png": "icons/icon.png"
+        }
+      },
+      "rpm": {
+        "depends": [
+          "(qemu-system-x86-core or qemu-x86)",
+          "(qemu-img or qemu-tools)"
+        ],
+        "recommends": [
+          "(qemu-ui-gtk)"
+        ],
+        "desktopTemplate": "beatbox.desktop",
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/dev.beatrooter.beatbox.svg": "icons/BeatBox_logo.svg",
+          "/usr/share/icons/hicolor/512x512/apps/dev.beatrooter.beatbox.png": "icons/icon.png"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/dev.beatrooter.beatbox.svg": "icons/BeatBox_logo.svg",
+          "/usr/share/icons/hicolor/512x512/apps/dev.beatrooter.beatbox.png": "icons/icon.png"
+        }
+      }
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

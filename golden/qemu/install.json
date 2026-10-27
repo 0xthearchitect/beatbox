@@ -1,0 +1,216 @@
+{
+  "commands": [
+    {
+      "case": "offline",
+      "build": {
+        "source": "{DIR}/installer.iso",
+        "target": "{DIR}/disks/win10.qcow2"
+      },
+      "argv": [
+        "qemu-system-x86_64",
+        "-name",
+        "install:win10",
+        "-uuid",
+        "{UUID}",
+        "-m",
+        "4096",
+        "-smp",
+        "2",
+        "-machine",
+        "q35",
+        "-device",
+        "ahci,id=ahci0",
+        "-drive",
+        "file={DIR}/disks/win10.qcow2,if=none,id=sysdisk,discard=unmap,detect-zeroes=unmap",
+        "-device",
+        "ide-hd,bus=ahci0.0,drive=sysdisk,rotation_rate=1",
+        "-cdrom",
+        "{DIR}/installer.iso",
+        "-boot",
+        "once=d",
+        "-nic",
+        "none",
+        "-device",
+        "qemu-xhci,id=usb0",
+        "-device",
+        "usb-tablet,bus=usb0.0",
+        "-accel",
+        "kvm",
+        "-cpu",
+        "host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vpindex=on,hv-runtime=on,hv-time=on,hv-synic=on,hv-stimer=on,hv-frequencies=on",
+        "-device",
+        "virtio-balloon-pci,free-page-reporting=on,deflate-on-oom=on"
+      ]
+    },
+    {
+      "case": "online-with-channels",
+      "build": {
+        "source": "{DIR}/installer.iso",
+        "target": "{DIR}/disks/alma.qcow2",
+        "size_gb": 20,
+        "memory_mb": 2048,
+        "cpus": 1,
+        "network": true,
+        "monitor_socket": "{DIR}/disks/alma.monitor.sock",
+        "agent_socket": "{DIR}/disks/alma.agent.sock"
+      },
+      "argv": [
+        "qemu-system-x86_64",
+        "-name",
+        "install:alma",
+        "-uuid",
+        "{UUID}",
+        "-m",
+        "2048",
+        "-smp",
+        "1",
+        "-machine",
+        "q35",
+        "-device",
+        "ahci,id=ahci0",
+        "-drive",
+        "file={DIR}/disks/alma.qcow2,if=none,id=sysdisk,discard=unmap,detect-zeroes=unmap",
+        "-device",
+        "ide-hd,bus=ahci0.0,drive=sysdisk,rotation_rate=1",
+        "-cdrom",
+        "{DIR}/installer.iso",
+        "-boot",
+        "once=d",
+        "-nic",
+        "user",
+        "-device",
+        "qemu-xhci,id=usb0",
+        "-device",
+        "usb-tablet,bus=usb0.0",
+        "-qmp",
+        "unix:{DIR}/disks/alma.monitor.sock,server=on,wait=off",
+        "-chardev",
+        "socket,path={DIR}/disks/alma.agent.sock,server=on,wait=off,id=qga0",
+        "-device",
+        "virtio-serial",
+        "-device",
+        "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0",
+        "-accel",
+        "kvm",
+        "-cpu",
+        "host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vpindex=on,hv-runtime=on,hv-time=on,hv-synic=on,hv-stimer=on,hv-frequencies=on",
+        "-device",
+        "virtio-balloon-pci,free-page-reporting=on,deflate-on-oom=on"
+      ]
+    },
+    {
+      "case": "commas-in-paths",
+      "build": {
+        "source": "{DIR}/Lab, test/inst,aller.iso",
+        "target": "{DIR}/Lab, test/new,disk.qcow2"
+      },
+      "argv": [
+        "qemu-system-x86_64",
+        "-name",
+        "install:new,disk",
+        "-uuid",
+        "{UUID}",
+        "-m",
+        "4096",
+        "-smp",
+        "2",
+        "-machine",
+        "q35",
+        "-device",
+        "ahci,id=ahci0",
+        "-drive",
+        "file={DIR}/Lab,, test/new,,disk.qcow2,if=none,id=sysdisk,discard=unmap,detect-zeroes=unmap",
+        "-device",
+        "ide-hd,bus=ahci0.0,drive=sysdisk,rotation_rate=1",
+        "-cdrom",
+        "{DIR}/Lab,, test/inst,,aller.iso",
+        "-boot",
+        "once=d",
+        "-nic",
+        "none",
+        "-device",
+        "qemu-xhci,id=usb0",
+        "-device",
+        "usb-tablet,bus=usb0.0",
+        "-accel",
+        "kvm",
+        "-cpu",
+        "host,hv-relaxed=on,hv-vapic=on,hv-spinlocks=0x1fff,hv-vpindex=on,hv-runtime=on,hv-time=on,hv-synic=on,hv-stimer=on,hv-frequencies=on",
+        "-device",
+        "virtio-balloon-pci,free-page-reporting=on,deflate-on-oom=on"
+      ]
+    }
+  ],
+  "refused": [
+    {
+      "case": "nothing-given",
+      "build": {
+        "source": "",
+        "target": "",
+        "size_gb": 0
+      },
+      "reasons": [
+        {
+          "code": "build.no_source",
+          "values": {}
+        },
+        {
+          "code": "build.no_target",
+          "values": {}
+        },
+        {
+          "code": "build.too_small",
+          "values": {}
+        }
+      ]
+    },
+    {
+      "case": "source-is-not-a-disc",
+      "build": {
+        "source": "{DIR}/disk.qcow2",
+        "target": "{DIR}/disks/x.qcow2"
+      },
+      "reasons": [
+        {
+          "code": "build.source_not_a_disc",
+          "values": {
+            "path": "{DIR}/disk.qcow2"
+          }
+        }
+      ]
+    },
+    {
+      "case": "target-exists",
+      "build": {
+        "source": "{DIR}/installer.iso",
+        "target": "{DIR}/disk.qcow2"
+      },
+      "reasons": [
+        {
+          "code": "build.target_exists",
+          "values": {
+            "path": "{DIR}/disk.qcow2"
+          }
+        }
+      ]
+    },
+    {
+      "case": "no-display-no-qemu-img",
+      "build": {},
+      "reasons": [
+        {
+          "code": "build.no_qemu_img",
+          "values": {
+            "binary": "qemu-img"
+          }
+        },
+        {
+          "code": "build.no_display",
+          "values": {
+            "install": "{HINT}"
+          }
+        }
+      ]
+    }
+  ]
+}

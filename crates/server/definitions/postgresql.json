@@ -1,0 +1,114 @@
+{
+  "id": "postgresql",
+  "version": "5",
+  "name": "PostgreSQL database",
+  "description": "A PostgreSQL database in UTF-8, initialized on first start and kept across restarts. Needs PostgreSQL installed in the guest. Finds its programs automatically and prepares the postgres account and data folder. The initial password only applies to a new database.",
+  "author": "BeatBox",
+  "runtime": {
+    "type": "process",
+    "command": [
+      "bash",
+      "/etc/beatbox/{_id}/postgresql-run.sh",
+      "serve",
+      "{bin_directory}",
+      "/var/lib/postgresql/beatbox/{_id}",
+      "{port}",
+      "{database}",
+      "{user}",
+      "{initial_password}"
+    ]
+  },
+  "requires": [
+    "psql",
+    "pg_isready",
+    "bash"
+  ],
+  "configuration": {
+    "port": {
+      "kind": "number",
+      "default": 5432
+    },
+    "bin_directory": {
+      "kind": "text",
+      "default": ""
+    },
+    "initial_password": {
+      "kind": "secret"
+    },
+    "database": {
+      "kind": "text",
+      "default": ""
+    },
+    "user": {
+      "kind": "text",
+      "default": ""
+    }
+  },
+  "interfaces": [
+    {
+      "transport": "tcp",
+      "port": "{port}",
+      "protocol": "postgresql"
+    }
+  ],
+  "files": [
+    {
+      "path": "/etc/beatbox/{_id}/postgresql-run.sh",
+      "content": "set -eu\n# The initial password arrives as an argument, which any user of the machine\n# can read in /proc/<pid>/cmdline for as long as the process lives. Move it\n# into the environment, readable by root alone, before anything else runs.\n# `serve bin data port database user password` becomes `run bin data port\n# database user`, the same process, its password in the environment.\nif [ \"${1-}\" = serve ]; then\n  BEATBOX_PG_PASSWORD=${7-} exec bash \"$0\" run \"$2\" \"$3\" \"$4\" \"${5-}\" \"${6-}\"\nfi\nmode=$1\nbin=$2\ndata=$3\nport=$4\nrequired=\nif [ -s \"$data/PG_VERSION\" ]; then\n  required=$(cat \"$data/PG_VERSION\")\n  case \"$required\" in *[!0-9.]*|'') exit 2;; esac\nfi\nversion_of() {\n  reported=$(\"$1/postgres\" --version)\n  reported=${reported#*PostgreSQL) }\n  reported=${reported%% *}\n  case \"$reported\" in 9.*) echo \"$reported\" | cut -d. -f1,2;; *) echo \"${reported%%.*}\";; esac\n}\navailable() {\n  [ -x \"$1/postgres\" ] && [ -x \"$1/initdb\" ] && [ -x \"$1/pg_isready\" ] && [ -x \"$1/psql\" ]\n}\nif [ -z \"$bin\" ]; then\n  best=\n  found=$(command -v postgres || true)\n  for candidate in \"${found%/*}\" /usr/bin /usr/lib/postgresql/*/bin; do\n    if available \"$candidate\"; then\n      version=$(version_of \"$candidate\")\n      if [ -n \"$required\" ] && [ \"$version\" != \"$required\" ]; then continue; fi\n      newest=$(printf '%s\\n%s\\n' \"$best\" \"$version\" | sort -V | tail -n 1)\n      if [ \"$newest\" = \"$version\" ]; then bin=$candidate; best=$version; fi\n    fi\n  done\nfi\nif [ -z \"$bin\" ] || ! available \"$bin\"; then\n  if [ -n \"$required\" ]; then\n    printf '{\"code\":\"server.pg_version_missing\",\"values\":{\"version\":\"%s\"}}\\n' \"$required\"\n  else\n    printf '%s\\n' '{\"code\":\"server.program_missing\",\"values\":{\"service\":\"Database\",\"program\":\"PostgreSQL\"}}'\n  fi\n  exit 1\nfi\nif [ -n \"$required\" ] && [ \"$(version_of \"$bin\")\" != \"$required\" ]; then\n  printf '{\"code\":\"server.pg_version_missing\",\"values\":{\"version\":\"%s\"}}\\n' \"$required\"\n  exit 1\nfi\nif ! command -v setpriv >/dev/null; then\n  printf '%s\\n' '{\"code\":\"server.program_missing\",\"values\":{\"service\":\"Database\",\"program\":\"setpriv\"}}'\n  exit 1\nfi\nas_postgres=(setpriv --reuid=postgres --regid=postgres --init-groups --)\n# The database and user asked for, made once the server answers, and only\n# if missing: every start, so a name added later is made too, and nothing\n# that exists is ever touched. Names go in as psql variables and out\n# through %I and %L; the password comes from the environment, never argv.\nprovision() {\n  for _ in $(seq 60); do\n    if [ -n \"$stopping\" ] || ! kill -0 \"$child\" 2>/dev/null; then return 0; fi\n    if \"${as_postgres[@]}\" \"$bin/pg_isready\" -q -h \"$data\" -p \"$port\"; then break; fi\n    sleep 0.5\n  done\n  BEATBOX_PG_PASSWORD=$password \"${as_postgres[@]}\" \"$bin/psql\" --no-psqlrc --quiet \\\n    --host \"$data\" --port \"$port\" --username postgres --dbname postgres \\\n    --set ON_ERROR_STOP=1 --set user=\"$user\" --set database=\"$database\" <<'SQL'\n\\set password `printf '%s' \"$BEATBOX_PG_PASSWORD\"`\nSELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'user', :'password')\n  WHERE :'user' <> '' AND NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'user') \\gexec\nSELECT format('CREATE DATABASE %I OWNER %I', :'database', coalesce(nullif(:'user', ''), 'postgres'))\n  WHERE :'database' <> '' AND NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database') \\gexec\nSQL\n}\ncase \"$mode\" in\n  check) exit 0;;\n  health) exec \"$bin/pg_isready\" -h 127.0.0.1 -p \"$port\";;\n  query) exec runuser -u postgres -- \"$bin/psql\" --host \"$data\" --port \"$port\" --username postgres --dbname \"${6:-postgres}\" --no-psqlrc --set ON_ERROR_STOP=1 --command \"$5\";;\n  run)\n    database=${5-}\n    user=${6-}\n    password=${BEATBOX_PG_PASSWORD-}\n    unset BEATBOX_PG_PASSWORD\n    if ! getent passwd postgres >/dev/null; then\n      useradd --system --user-group --home-dir /var/lib/postgresql --shell /usr/sbin/nologin postgres\n    fi\n    install -d -o postgres -g postgres -m 700 \"$data\"\n    if [ ! -s \"$data/PG_VERSION\" ]; then\n      # UTF8 and the C locale on purpose: the agent's environment rarely has\n      # a LANG, and initdb would then pick SQL_ASCII, which stores accents\n      # unchecked. The password reaches initdb through a pipe, never argv.\n      BEATBOX_PG_PASSWORD=$password \"${as_postgres[@]}\" bash -c 'set -eu; umask 077\n        \"$1/initdb\" -D \"$2\" --username=postgres --encoding=UTF8 --locale=C \\\n          --auth-local=peer --auth-host=scram-sha-256 --pwfile=<(printf \"%s\\n\" \"$BEATBOX_PG_PASSWORD\")\n        printf \"\\nhost all all 0.0.0.0/0 scram-sha-256\\n\" >> \"$2/pg_hba.conf\"' bash \"$bin\" \"$data\"\n    fi\n    # A simple command in the background, and setpriv execs: $child is the\n    # postmaster itself (a function here would put a subshell in between).\n    # The Server stops a service with TERM, which PostgreSQL reads as \"wait\n    # for every client to leave\"; INT is its fast shutdown. Wait until it\n    # has really gone, so a restart never finds the old postmaster still\n    # holding the port.\n    child=\n    stopping=\n    trap 'stopping=1; [ -z \"$child\" ] || kill -INT \"$child\" 2>/dev/null || true' TERM INT\n    \"${as_postgres[@]}\" \"$bin/postgres\" -D \"$data\" -h 0.0.0.0 -p \"$port\" -k \"$data\" \\\n      -c shared_buffers=16MB -c max_connections=20 &\n    child=$!\n    [ -z \"$stopping\" ] || kill -INT \"$child\" 2>/dev/null || true\n    if [ -n \"$database$user\" ]; then\n      provision || printf 'BeatBox could not create the database or user it was asked for; see above.\\n' >&2\n    fi\n    while :; do\n      wait \"$child\" && status=0 || status=$?\n      kill -0 \"$child\" 2>/dev/null || exit \"$status\"\n    done\n    ;;\n  *) exit 2;;\nesac\n"
+    }
+  ],
+  "health": {
+    "type": "command",
+    "command": [
+      "bash",
+      "/etc/beatbox/{_id}/postgresql-run.sh",
+      "health",
+      "{bin_directory}",
+      "/var/lib/postgresql/beatbox/{_id}",
+      "{port}"
+    ]
+  },
+  "capabilities": [
+    {
+      "capability": "database.query",
+      "inputs": [
+        {
+          "name": "sql",
+          "kind": "text"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "exit_code",
+          "kind": "number"
+        },
+        {
+          "name": "stdout",
+          "kind": "text"
+        },
+        {
+          "name": "stderr",
+          "kind": "text"
+        }
+      ],
+      "run": [
+        "bash",
+        "/etc/beatbox/{_id}/postgresql-run.sh",
+        "query",
+        "{bin_directory}",
+        "/var/lib/postgresql/beatbox/{_id}",
+        "{port}",
+        "{sql}",
+        "{database}"
+      ]
+    }
+  ],
+  "prepare": [
+    "bash",
+    "/etc/beatbox/{_id}/postgresql-run.sh",
+    "check",
+    "{bin_directory}",
+    "/var/lib/postgresql/beatbox/{_id}",
+    "{port}"
+  ]
+}

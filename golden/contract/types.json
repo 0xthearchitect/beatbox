@@ -1,0 +1,1177 @@
+{
+  "ReasonView": {
+    "full": {
+      "code": "code text",
+      "values": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    },
+    "sparse": {
+      "code": "code text",
+      "values": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    }
+  },
+  "ApiError": {
+    "full": {
+      "code": "code text",
+      "message": "message text",
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "sparse": {
+      "code": "code text",
+      "message": "message text",
+      "reason": null
+    }
+  },
+  "Availability": {
+    "full": {
+      "ready": true,
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "sparse": {
+      "ready": true,
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    }
+  },
+  "SystemProbe": {
+    "full": {
+      "platform": "platform text",
+      "user": "user text",
+      "kvm": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "qemu": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "frida": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "terminal": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "memoryFreeMb": 7,
+      "memoryTotalMb": 7
+    },
+    "sparse": {
+      "platform": "platform text",
+      "user": "user text",
+      "kvm": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "qemu": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "frida": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "terminal": {
+        "ready": true,
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        }
+      },
+      "memoryFreeMb": 7,
+      "memoryTotalMb": 7
+    }
+  },
+  "Locale": {
+    "full": {
+      "language": "language text",
+      "available": [
+        "available text",
+        "available text"
+      ],
+      "strings": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    },
+    "sparse": {
+      "language": "language text",
+      "available": [
+        "available text",
+        "available text"
+      ],
+      "strings": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    }
+  },
+  "Place": {
+    "full": {
+      "key": "key text",
+      "icon": "icon text",
+      "path": "path text"
+    },
+    "sparse": {
+      "key": "key text",
+      "icon": "icon text",
+      "path": "path text"
+    }
+  },
+  "Crumb": {
+    "full": {
+      "name": "name text",
+      "path": "path text"
+    },
+    "sparse": {
+      "name": "name text",
+      "path": "path text"
+    }
+  },
+  "FileEntry": {
+    "full": {
+      "name": "name text",
+      "path": "path text",
+      "folder": true,
+      "size": 7,
+      "modified": 1.5,
+      "hidden": true
+    },
+    "sparse": {
+      "name": "name text",
+      "path": "path text",
+      "folder": true,
+      "size": 7,
+      "modified": 1.5,
+      "hidden": true
+    }
+  },
+  "FolderView": {
+    "full": {
+      "path": "path text",
+      "parent": "parent text",
+      "crumbs": [
+        {
+          "name": "name text",
+          "path": "path text"
+        },
+        {
+          "name": "name text",
+          "path": "path text"
+        }
+      ],
+      "entries": [
+        {
+          "name": "name text",
+          "path": "path text",
+          "folder": true,
+          "size": 7,
+          "modified": 1.5,
+          "hidden": true
+        },
+        {
+          "name": "name text",
+          "path": "path text",
+          "folder": true,
+          "size": 7,
+          "modified": 1.5,
+          "hidden": true
+        }
+      ],
+      "beyond": 7,
+      "filtered": 7
+    },
+    "sparse": {
+      "path": "path text",
+      "parent": "parent text",
+      "crumbs": [
+        {
+          "name": "name text",
+          "path": "path text"
+        },
+        {
+          "name": "name text",
+          "path": "path text"
+        }
+      ],
+      "entries": [
+        {
+          "name": "name text",
+          "path": "path text",
+          "folder": true,
+          "size": 7,
+          "modified": 1.5,
+          "hidden": true
+        },
+        {
+          "name": "name text",
+          "path": "path text",
+          "folder": true,
+          "size": 7,
+          "modified": 1.5,
+          "hidden": true
+        }
+      ],
+      "beyond": 7,
+      "filtered": 7
+    }
+  },
+  "ClosingView": {
+    "full": {
+      "sandboxes": 7,
+      "installing": true
+    },
+    "sparse": {
+      "sandboxes": 7,
+      "installing": true
+    }
+  },
+  "Job": {
+    "full": {
+      "id": "id text",
+      "kind": "kind text",
+      "state": "state text",
+      "message": "message text",
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "sparse": {
+      "id": "id text",
+      "kind": "kind text",
+      "state": "state text",
+      "message": "message text",
+      "reason": null
+    }
+  },
+  "SandboxTypeView": {
+    "full": {
+      "name": "name text",
+      "version": "version text",
+      "isolation": "isolation text",
+      "capabilities": [
+        "capabilities text",
+        "capabilities text"
+      ],
+      "actions": [
+        {
+          "capability": "capability text",
+          "inputs": [
+            {
+              "name": "name text",
+              "kind": "kind text",
+              "required": true
+            }
+          ],
+          "outputs": [
+            {
+              "name": "name text",
+              "kind": "kind text",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    "sparse": {
+      "name": "name text",
+      "version": "version text",
+      "isolation": "isolation text",
+      "capabilities": [
+        "capabilities text",
+        "capabilities text"
+      ],
+      "actions": []
+    }
+  },
+  "SandboxSummary": {
+    "full": {
+      "id": "id text",
+      "type": "type text",
+      "name": "name text",
+      "lifecycle": "lifecycle text",
+      "since": "since text"
+    },
+    "sparse": {
+      "id": "id text",
+      "type": "type text",
+      "name": "name text",
+      "lifecycle": "lifecycle text",
+      "since": "since text"
+    }
+  },
+  "SandboxConfigView": {
+    "full": {
+      "type": "type text",
+      "name": "name text",
+      "resources": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "isolation": "isolation text",
+      "settings": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "uses": {
+        "host": "sbx-1"
+      }
+    },
+    "sparse": {
+      "type": "type text",
+      "name": "name text",
+      "resources": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "isolation": "isolation text",
+      "settings": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "uses": {}
+    }
+  },
+  "SandboxStateView": {
+    "full": {
+      "lifecycle": "lifecycle text",
+      "since": "since text",
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      },
+      "resources": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "facts": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    },
+    "sparse": {
+      "lifecycle": "lifecycle text",
+      "since": "since text",
+      "reason": null,
+      "resources": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "facts": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    }
+  },
+  "SandboxView": {
+    "full": {
+      "id": "id text",
+      "type": "type text",
+      "name": "name text",
+      "version": "version text",
+      "isolation": "isolation text",
+      "capabilities": [
+        "capabilities text",
+        "capabilities text"
+      ],
+      "transitions": [
+        "transitions text",
+        "transitions text"
+      ],
+      "config": {
+        "type": "type text",
+        "name": "name text",
+        "resources": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        },
+        "isolation": "isolation text",
+        "settings": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        },
+        "uses": {
+          "host": "sbx-1"
+        }
+      },
+      "state": {
+        "lifecycle": "lifecycle text",
+        "since": "since text",
+        "reason": {
+          "code": "code text",
+          "values": {
+            "snake_key": 1,
+            "nested_map": {
+              "inner_key": [
+                1,
+                2.5,
+                "x",
+                true,
+                null
+              ]
+            }
+          }
+        },
+        "resources": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        },
+        "facts": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "sparse": {
+      "id": "id text",
+      "type": "type text",
+      "name": "name text",
+      "version": "version text",
+      "isolation": "isolation text",
+      "capabilities": [
+        "capabilities text",
+        "capabilities text"
+      ],
+      "transitions": [
+        "transitions text",
+        "transitions text"
+      ],
+      "config": {
+        "type": "type text",
+        "name": "name text",
+        "resources": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        },
+        "isolation": "isolation text",
+        "settings": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        },
+        "uses": {}
+      },
+      "state": {
+        "lifecycle": "lifecycle text",
+        "since": "since text",
+        "reason": null,
+        "resources": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        },
+        "facts": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    }
+  },
+  "ActionOutcomeView": {
+    "full": {
+      "capability": "capability text",
+      "ok": true,
+      "data": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "sparse": {
+      "capability": "capability text",
+      "ok": true,
+      "data": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "reason": null
+    }
+  },
+  "SandboxEventView": {
+    "full": {
+      "name": "name text",
+      "sandboxId": "sandbox_id text",
+      "at": "at text",
+      "sequence": 7,
+      "data": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    },
+    "sparse": {
+      "name": "name text",
+      "sandboxId": "sandbox_id text",
+      "at": "at text",
+      "sequence": 7,
+      "data": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      }
+    }
+  },
+  "DiskView": {
+    "full": {
+      "name": "name text",
+      "path": "path text",
+      "bytes": 7
+    },
+    "sparse": {
+      "name": "name text",
+      "path": "path text",
+      "bytes": 7
+    }
+  },
+  "GuestToolsView": {
+    "full": {
+      "ready": true,
+      "version": "version text",
+      "bytes": 7
+    },
+    "sparse": {
+      "ready": true,
+      "version": "version text",
+      "bytes": 7
+    }
+  },
+  "SetupStepView": {
+    "full": {
+      "key": "key text",
+      "ready": true,
+      "optional": true,
+      "fixable": true,
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "sparse": {
+      "key": "key text",
+      "ready": true,
+      "optional": true,
+      "fixable": true,
+      "reason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    }
+  },
+  "SetupView": {
+    "full": {
+      "steps": [
+        {
+          "key": "key text",
+          "ready": true,
+          "optional": true,
+          "fixable": true,
+          "reason": {
+            "code": "code text",
+            "values": {
+              "snake_key": 1,
+              "nested_map": {
+                "inner_key": [
+                  1,
+                  2.5,
+                  "x",
+                  true,
+                  null
+                ]
+              }
+            }
+          }
+        },
+        {
+          "key": "key text",
+          "ready": true,
+          "optional": true,
+          "fixable": true,
+          "reason": {
+            "code": "code text",
+            "values": {
+              "snake_key": 1,
+              "nested_map": {
+                "inner_key": [
+                  1,
+                  2.5,
+                  "x",
+                  true,
+                  null
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sparse": {
+      "steps": [
+        {
+          "key": "key text",
+          "ready": true,
+          "optional": true,
+          "fixable": true,
+          "reason": {
+            "code": "code text",
+            "values": {
+              "snake_key": 1,
+              "nested_map": {
+                "inner_key": [
+                  1,
+                  2.5,
+                  "x",
+                  true,
+                  null
+                ]
+              }
+            }
+          }
+        },
+        {
+          "key": "key text",
+          "ready": true,
+          "optional": true,
+          "fixable": true,
+          "reason": {
+            "code": "code text",
+            "values": {
+              "snake_key": 1,
+              "nested_map": {
+                "inner_key": [
+                  1,
+                  2.5,
+                  "x",
+                  true,
+                  null
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "DiskInspectView": {
+    "full": {
+      "format": "format text",
+      "bytes": 7,
+      "firmware": "firmware text",
+      "bootable": true,
+      "virtualboxSnapshots": true,
+      "inside": "inside text",
+      "installer": "installer text",
+      "problem": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1,
+          "nested_map": {
+            "inner_key": [
+              1,
+              2.5,
+              "x",
+              true,
+              null
+            ]
+          }
+        }
+      }
+    },
+    "sparse": {
+      "format": "format text",
+      "bytes": 7,
+      "firmware": "firmware text",
+      "bootable": true,
+      "virtualboxSnapshots": true,
+      "inside": "inside text",
+      "installer": "installer text",
+      "problem": null
+    }
+  },
+  "CommandView": {
+    "full": {
+      "id": "id text",
+      "name": "name text",
+      "group": "group text",
+      "machine": "machine text",
+      "linux": "linux text",
+      "windows": "windows text",
+      "blanks": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "timeout": 7
+    },
+    "sparse": {
+      "id": "id text",
+      "name": "name text",
+      "group": "group text",
+      "machine": "machine text",
+      "linux": "linux text",
+      "windows": "windows text",
+      "blanks": {
+        "snake_key": 1,
+        "nested_map": {
+          "inner_key": [
+            1,
+            2.5,
+            "x",
+            true,
+            null
+          ]
+        }
+      },
+      "timeout": 7
+    }
+  },
+  "WatcherView": {
+    "full": {
+      "id": "id text",
+      "sandboxId": "sandboxId text",
+      "name": "name text",
+      "line": "line text",
+      "every": 7,
+      "tell": "tell text",
+      "text": "text text",
+      "paused": true,
+      "state": "state text",
+      "runs": 7,
+      "lastAt": "lastAt text",
+      "lastExit": 7,
+      "lastOutput": "lastOutput text",
+      "changedAt": "changedAt text",
+      "lastReason": {
+        "code": "code text",
+        "values": {
+          "snake_key": 1
+        }
+      }
+    },
+    "sparse": {
+      "id": "id text",
+      "sandboxId": "sandboxId text",
+      "name": "name text",
+      "line": "line text",
+      "every": 7,
+      "tell": "tell text",
+      "text": "text text",
+      "paused": true,
+      "state": "state text",
+      "runs": 7,
+      "lastAt": "lastAt text",
+      "lastExit": null,
+      "lastOutput": "lastOutput text",
+      "changedAt": "changedAt text",
+      "lastReason": null
+    }
+  }
+}

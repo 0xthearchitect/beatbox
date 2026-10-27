@@ -1,0 +1,278 @@
+{
+  "cable_traffic": [],
+  "cidr": "10.30.0.0/24",
+  "dns": {
+    "www.empresa.pt": "10.30.50.10"
+  },
+  "firewall": {
+    "answers": true,
+    "default": "deny",
+    "groups": {},
+    "names": [
+      {
+        "action": "cut",
+        "id": "n1",
+        "name": "jogos.exemplo",
+        "source": "any",
+        "to": null,
+        "uses": 0
+      },
+      {
+        "action": "hide",
+        "id": "n2",
+        "name": "anuncios.exemplo",
+        "source": "any",
+        "to": null,
+        "uses": 0
+      }
+    ],
+    "rules": [
+      {
+        "action": "allow",
+        "destination": "vlan:50",
+        "ethertype": null,
+        "family": null,
+        "icmp_type": null,
+        "id": "r1",
+        "limit": null,
+        "log": false,
+        "port": null,
+        "port_last": null,
+        "protocol": "any",
+        "service": null,
+        "source": "vlan:1",
+        "state": "any"
+      },
+      {
+        "action": "allow",
+        "destination": "internet",
+        "ethertype": null,
+        "family": null,
+        "icmp_type": null,
+        "id": "r2",
+        "limit": null,
+        "log": false,
+        "port": null,
+        "port_last": null,
+        "protocol": "any",
+        "service": null,
+        "source": "vlan:1",
+        "state": "any"
+      },
+      {
+        "action": "allow",
+        "destination": "web",
+        "ethertype": null,
+        "family": null,
+        "icmp_type": null,
+        "id": "r3",
+        "limit": null,
+        "log": false,
+        "port": 80,
+        "port_last": 80,
+        "protocol": "tcp",
+        "service": null,
+        "source": "any",
+        "state": "any"
+      },
+      {
+        "action": "allow",
+        "destination": "correio",
+        "ethertype": null,
+        "family": null,
+        "icmp_type": null,
+        "id": "r4",
+        "limit": null,
+        "log": false,
+        "port": 25,
+        "port_last": 25,
+        "protocol": "tcp",
+        "service": null,
+        "source": "any",
+        "state": "any"
+      }
+    ],
+    "services": {}
+  },
+  "format": "beatbox-network",
+  "internet": true,
+  "nodes": [
+    {
+      "address": "10.30.0.10",
+      "addresses6": [
+        "fd00:10:30:0:bb:aff:fe1e:a"
+      ],
+      "at": "sw1:0",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:1e:00:0a",
+      "node": "pc1"
+    },
+    {
+      "address": "10.30.0.11",
+      "addresses6": [
+        "fd00:10:30:0:bb:aff:fe1e:b"
+      ],
+      "at": "sw1:2",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": false,
+        "gateway": null,
+        "kind": "pc",
+        "ping": true,
+        "web": false
+      },
+      "mac": "02:bb:0a:1e:00:0b",
+      "node": "pc2"
+    },
+    {
+      "address": "10.30.50.10",
+      "addresses6": [
+        "fd00:10:30:50:bb:aff:fe1e:320a"
+      ],
+      "at": "dmz:2",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": true,
+        "gateway": null,
+        "kind": "server",
+        "ping": true,
+        "web": true
+      },
+      "mac": "02:bb:0a:1e:32:0a",
+      "node": "web"
+    },
+    {
+      "address": "10.30.50.11",
+      "addresses6": [
+        "fd00:10:30:50:bb:aff:fe1e:320b"
+      ],
+      "at": "dmz:3",
+      "light": {
+        "dhcp": true,
+        "dns": null,
+        "echo": true,
+        "gateway": null,
+        "kind": "server",
+        "ping": true,
+        "web": true
+      },
+      "mac": "02:bb:0a:1e:32:0b",
+      "node": "correio"
+    }
+  ],
+  "routers": [
+    {
+      "forwards": [
+        {
+          "id": "f1",
+          "port": 80,
+          "protocol": "tcp",
+          "quiet_ms": null,
+          "to": "web",
+          "to_port": 80,
+          "uses": 0
+        }
+      ],
+      "hidden": [
+        1
+      ],
+      "ipv6": [
+        1,
+        50
+      ],
+      "main": true,
+      "name": "gw",
+      "networks": [
+        {
+          "address": "10.30.0.1",
+          "address6": "fd00:10:30::1",
+          "cidr": "10.30.0.0/24",
+          "ipv6": true,
+          "prefix6": "fd00:10:30::/64",
+          "vlan": 1
+        },
+        {
+          "address": "10.30.50.1",
+          "address6": "fd00:10:30:50::1",
+          "cidr": "10.30.50.0/24",
+          "ipv6": true,
+          "prefix6": "fd00:10:30:50::/64",
+          "vlan": 50
+        }
+      ],
+      "routes": []
+    }
+  ],
+  "topology": {
+    "cables": [
+      [
+        "gw:1",
+        "sw1:1"
+      ],
+      [
+        "gw:2",
+        "dmz:1"
+      ]
+    ],
+    "devices": [
+      {
+        "kind": "router",
+        "name": "gw"
+      },
+      {
+        "kind": "switch",
+        "name": "sw1"
+      },
+      {
+        "kind": "switch",
+        "name": "dmz"
+      }
+    ],
+    "ports": {
+      "dmz:1": {
+        "mode": "access",
+        "vlan": 50
+      },
+      "dmz:2": {
+        "mode": "access",
+        "vlan": 50
+      },
+      "dmz:3": {
+        "mode": "access",
+        "vlan": 50
+      },
+      "dmz:4": {
+        "mode": "access",
+        "vlan": 50
+      },
+      "dmz:5": {
+        "mode": "access",
+        "vlan": 50
+      },
+      "gw:2": {
+        "mode": "access",
+        "vlan": 50
+      }
+    }
+  },
+  "traffic": {
+    "bandwidth_kbps": 0.0,
+    "jitter_ms": 0.0,
+    "latency_ms": 0.0,
+    "loss_percent": 0.0
+  },
+  "version": 1,
+  "vlan_names": {
+    "50": "DMZ"
+  }
+}

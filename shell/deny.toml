@@ -1,0 +1,82 @@
+# The window's dependency policy. The daemon's is ../deny.toml, and it is
+# the stricter of the two on purpose:
+# this crate is a webview and a message box, and the daemon is what holds
+# the machines.
+#
+# Direct dependencies, and why:
+#
+#   beatbox-contract    the only part of BeatBox the window sees: the shapes,
+#                       the door, the wire.
+#   tauri               the window: the system's own webview (WebKitGTK,
+#                       WebView2) around web/dist. It is most of
+#                       Cargo.lock, and the one dependency here that is
+#                       argued as a whole.
+#   rfd                 a message box, for what is said before or without the
+#                       page: "BeatBox is already open". gtk3 only, which
+#                       Tauri links on Linux already; no portal, no async.
+#   serde, serde_json   the contract is JSON.
+#   log                 the facade every Rust logger speaks.
+
+[graph]
+all-features = true
+# What is shipped: Linux, and Windows either way it is built.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-gnu",
+    "x86_64-pc-windows-msvc",
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+# Every one "unmaintained", none a vulnerability, and none of them code that
+# runs in the window: two procedural macros and the Unicode tables of a URL
+# pattern matcher, used when Tauri is built. They go when Tauri moves.
+ignore = [
+    # glib-macros (gtk-rs, GTK 3), a compile-time macro helper.
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error: glib's macros, at build time" },
+    # urlpattern, in tauri-utils: its Unicode identifier tables.
+    { id = "RUSTSEC-2025-0075", reason = "unic-char-range: urlpattern, via tauri-utils" },
+    { id = "RUSTSEC-2025-0080", reason = "unic-common: urlpattern, via tauri-utils" },
+    { id = "RUSTSEC-2025-0081", reason = "unic-char-property: urlpattern, via tauri-utils" },
+    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version: urlpattern, via tauri-utils" },
+    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident: urlpattern, via tauri-utils" },
+]
+
+[licenses]
+version = 2
+# Permissive licences, as the daemon's. Plus BSD-3-Clause and Zlib, which
+# are permissive too and are brotli's and zlib-rs's here.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "MIT",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.9
+# MPL-2.0 is copyleft file by file: shipping it compiled is fine, and what it
+# asks is that its own files stay available, which crates.io is. Admitted for
+# these, by name, and not as a licence any crate may bring: the CSS and HTML
+# parsing Tauri's build step does to the bundle (cssparser, selectors,
+# dtoa-short), and dirs' option-ext.
+exceptions = [
+    { allow = ["MPL-2.0"], crate = "cssparser" },
+    { allow = ["MPL-2.0"], crate = "cssparser-macros" },
+    { allow = ["MPL-2.0"], crate = "dtoa-short" },
+    { allow = ["MPL-2.0"], crate = "selectors" },
+    { allow = ["MPL-2.0"], crate = "option-ext" },
+]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

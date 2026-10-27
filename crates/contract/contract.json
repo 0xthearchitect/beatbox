@@ -1,0 +1,704 @@
+{
+  "contract_version": 5,
+  "note": [
+    "The single source of truth for the BeatBox bridge. Rust generates its",
+    "types from it (crates/contract/build.rs); TypeScript mirrors it in",
+    "web/src/bridge/types.ts, and web/tests/contract.test.mjs checks that",
+    "mirror. Neither side hand-writes the other's shape, and an action that",
+    "exists on only one side fails a test rather than a user.",
+    "",
+    "Field names are snake_case here because that is what the engine speaks.",
+    "The wire is camelCase: the conversion is mechanical (crates/contract's",
+    "door), so there is no hand-written mapping anywhere and no drift to keep",
+    "in sync.",
+    "",
+    "Type language: str | int | float | bool | any, a PascalCase type name from",
+    "'types', '[]' for a list, '?' for optional. Nothing else is allowed.",
+    "",
+    "",
+    "An action marked `mutates` changes the world: it starts containers, spends",
+    "points, or tears an environment down. Nothing may call one speculatively --",
+    "a test that looped over every action and dispatched it is how four",
+    "containers and a network ended up orphaned on a developer's machine.",
+    "",
+    "An action in the `host.` namespace is declared here and answered by the",
+    "window rather than by the daemon: the window closing is the person's,",
+    "not the machine's. It is still one door -- the page calls it like any",
+    "other action.",
+    "",
+    "`answered_by` says which half of BeatBox answers an action or says an",
+    "event: `daemon` for the machine the",
+    "sandboxes run on, `shell` for the person at the screen -- their files,",
+    "their language, the window closing. The page never needs to know; the",
+    "shell routes by it."
+  ],
+  "envelope": {
+    "ok": "bool",
+    "data": "any?",
+    "error": "ApiError?"
+  },
+  "types": {
+    "ReasonView": {
+      "code": "str",
+      "values": "any"
+    },
+    "ApiError": {
+      "code": "str",
+      "message": "str",
+      "reason": "ReasonView?"
+    },
+    "Availability": {
+      "ready": "bool",
+      "reason": "ReasonView"
+    },
+    "SystemProbe": {
+      "platform": "str",
+      "user": "str",
+      "kvm": "Availability",
+      "qemu": "Availability",
+      "frida": "Availability",
+      "terminal": "Availability",
+      "memory_free_mb": "int",
+      "memory_total_mb": "int"
+    },
+    "Locale": {
+      "language": "str",
+      "available": "str[]",
+      "strings": "any"
+    },
+    "Preferences": {
+      "on_close": "str",
+      "builder_tools": "bool",
+      "new_memory_mb": "int",
+      "new_cpus": "int",
+      "new_reach": "str",
+      "new_agent": "bool"
+    },
+    "AboutView": {
+      "version": "str",
+      "engine_build": "str",
+      "engine_pid": "int",
+      "folder": "str",
+      "log": "str",
+      "log_bytes": "int"
+    },
+    "StoredMachine": {
+      "id": "str",
+      "name": "str",
+      "type": "str",
+      "lifecycle": "str",
+      "bytes": "int"
+    },
+    "StoredDisk": {
+      "name": "str",
+      "bytes": "int",
+      "made_into": "str[]"
+    },
+    "StorageView": {
+      "folder": "str",
+      "machines": "StoredMachine[]",
+      "disks": "StoredDisk[]",
+      "tools_bytes": "int",
+      "leftover_bytes": "int"
+    },
+    "Place": {
+      "key": "str",
+      "icon": "str",
+      "path": "str"
+    },
+    "Crumb": {
+      "name": "str",
+      "path": "str"
+    },
+    "FileEntry": {
+      "name": "str",
+      "path": "str",
+      "folder": "bool",
+      "size": "int",
+      "modified": "float",
+      "hidden": "bool"
+    },
+    "FolderView": {
+      "path": "str",
+      "parent": "str",
+      "crumbs": "Crumb[]",
+      "entries": "FileEntry[]",
+      "beyond": "int",
+      "filtered": "int"
+    },
+    "ClosingView": {
+      "sandboxes": "int",
+      "installing": "bool"
+    },
+    "Job": {
+      "id": "str",
+      "kind": "str",
+      "state": "str",
+      "message": "str",
+      "reason": "ReasonView?"
+    },
+    "ActionFieldView": {
+      "name": "str",
+      "kind": "str",
+      "required": "bool"
+    },
+    "ActionSpecView": {
+      "capability": "str",
+      "inputs": "ActionFieldView[]",
+      "outputs": "ActionFieldView[]"
+    },
+    "SandboxTypeView": {
+      "name": "str",
+      "version": "str",
+      "isolation": "str",
+      "capabilities": "str[]",
+      "actions": "ActionSpecView[]"
+    },
+    "SandboxSummary": {
+      "id": "str",
+      "type": "str",
+      "name": "str",
+      "lifecycle": "str",
+      "since": "str"
+    },
+    "SandboxConfigView": {
+      "type": "str",
+      "name": "str",
+      "resources": "any",
+      "isolation": "str",
+      "settings": "any",
+      "uses": "any"
+    },
+    "SandboxStateView": {
+      "lifecycle": "str",
+      "since": "str",
+      "reason": "ReasonView?",
+      "resources": "any",
+      "facts": "any"
+    },
+    "SandboxView": {
+      "id": "str",
+      "type": "str",
+      "name": "str",
+      "version": "str",
+      "isolation": "str",
+      "capabilities": "str[]",
+      "transitions": "str[]",
+      "config": "SandboxConfigView",
+      "state": "SandboxStateView"
+    },
+    "ActionOutcomeView": {
+      "capability": "str",
+      "ok": "bool",
+      "data": "any",
+      "reason": "ReasonView?"
+    },
+    "SandboxEventView": {
+      "name": "str",
+      "sandbox_id": "str",
+      "at": "str",
+      "sequence": "int",
+      "data": "any"
+    },
+    "DiskView": {
+      "name": "str",
+      "path": "str",
+      "bytes": "int"
+    },
+    "BeatDropSourceView": {
+      "path": "str",
+      "name": "str",
+      "bytes": "int",
+      "mountpoints": "str[]",
+      "dependent": "bool",
+      "needed": "int",
+      "problem": "str"
+    },
+    "BeatDropTargetView": {
+      "path": "str",
+      "disk": "str",
+      "free": "int"
+    },
+    "BeatDropInspectView": {
+      "sources": "BeatDropSourceView[]",
+      "targets": "BeatDropTargetView[]"
+    },
+    "GuestToolsView": {
+      "ready": "bool",
+      "version": "str",
+      "bytes": "int"
+    },
+    "SetupStepView": {
+      "key": "str",
+      "ready": "bool",
+      "optional": "bool",
+      "fixable": "bool",
+      "reason": "ReasonView"
+    },
+    "SetupView": {
+      "steps": "SetupStepView[]"
+    },
+    "DiskInspectView": {
+      "format": "str",
+      "bytes": "int",
+      "firmware": "str",
+      "bootable": "bool",
+      "virtualbox_snapshots": "bool",
+      "inside": "str",
+      "installer": "str",
+      "problem": "ReasonView?"
+    },
+    "CommandView": {
+      "id": "str",
+      "name": "str",
+      "group": "str",
+      "machine": "str",
+      "linux": "str",
+      "windows": "str",
+      "blanks": "any",
+      "timeout": "int"
+    },
+    "WatcherView": {
+      "id": "str",
+      "sandbox_id": "str",
+      "name": "str",
+      "line": "str",
+      "every": "int",
+      "tell": "str",
+      "text": "str",
+      "paused": "bool",
+      "state": "str",
+      "runs": "int",
+      "last_at": "str",
+      "last_exit": "int?",
+      "last_output": "str",
+      "changed_at": "str",
+      "last_reason": "ReasonView?"
+    }
+  },
+  "actions": {
+    "system.probe": {
+      "summary": "What this machine can actually run, and where BeatBox keeps things.",
+      "payload": {},
+      "response": "SystemProbe",
+      "answered_by": "daemon"
+    },
+    "system.locale": {
+      "summary": "The active language and every beatbox.* string in it.",
+      "payload": {},
+      "response": "Locale",
+      "answered_by": "shell"
+    },
+    "system.set_language": {
+      "summary": "Switch the language of the whole application.",
+      "mutates": true,
+      "payload": {
+        "language": "str"
+      },
+      "response": "Locale",
+      "answered_by": "shell"
+    },
+    "system.preferences": {
+      "summary": "The person's few choices: what closing does to running machines (ask | stop | leave), whether the rail shows the builder's pages, and what a new machine starts with.",
+      "payload": {},
+      "response": "Preferences",
+      "answered_by": "shell"
+    },
+    "system.set_preferences": {
+      "summary": "Change those choices, and remember them for the next window.",
+      "mutates": true,
+      "payload": {
+        "on_close": "str",
+        "builder_tools": "bool",
+        "new_memory_mb": "int",
+        "new_cpus": "int",
+        "new_reach": "str",
+        "new_agent": "bool"
+      },
+      "response": "Preferences",
+      "answered_by": "shell"
+    },
+    "system.about": {
+      "summary": "Which BeatBox this is, the engine running the machines, and where its folder and log are.",
+      "payload": {},
+      "response": "AboutView",
+      "answered_by": "shell"
+    },
+    "host.reveal": {
+      "summary": "Open BeatBox's folder or the engine's log with this computer's own program for it: folder | log.",
+      "payload": {
+        "what": "str"
+      },
+      "response": "bool",
+      "answered_by": "shell"
+    },
+    "storage.usage": {
+      "summary": "What BeatBox keeps on this computer's disk: each machine, each disk and who it is made into, the guest tools, and rooms left by machines that are gone.",
+      "payload": {},
+      "response": "StorageView",
+      "answered_by": "daemon"
+    },
+    "storage.sweep": {
+      "summary": "Remove the rooms left by machines that are gone, as a start does. Nothing a machine BeatBox knows still uses.",
+      "mutates": true,
+      "payload": {},
+      "response": "StorageView",
+      "answered_by": "daemon"
+    },
+    "jobs.current": {
+      "summary": "The job that is already in flight, if any -- so a screen that mounts partway through one (a tab switched away and back) can learn about it without waiting for the next event, which may be a while yet.",
+      "payload": {},
+      "response": "Job?",
+      "answered_by": "daemon"
+    },
+    "host.closing": {
+      "summary": "Answer the question the window asked on its way out: stop | leave | cancel.",
+      "mutates": true,
+      "payload": {
+        "choice": "str"
+      },
+      "response": "bool",
+      "answered_by": "shell"
+    },
+    "host.display": {
+      "summary": "Open or focus the BeatBox-owned window that shows a running machine.",
+      "mutates": true,
+      "payload": {
+        "id": "str",
+        "name": "str",
+        "url": "str",
+        "password": "str"
+      },
+      "response": "bool",
+      "answered_by": "shell"
+    },
+    "files.places": {
+      "summary": "The folders the chooser offers as one click. Only ones that exist.",
+      "payload": {},
+      "response": "Place[]",
+      "answered_by": "shell"
+    },
+    "files.list": {
+      "summary": "What is in one folder. `suffixes` is space-separated and empty means everything.",
+      "payload": {
+        "path": "str",
+        "suffixes": "str"
+      },
+      "response": "FolderView",
+      "answered_by": "shell"
+    },
+    "files.read": {
+      "summary": "A small text file the person chose in the chooser, as text: up to 4 MB.",
+      "payload": {
+        "path": "str"
+      },
+      "response": "str",
+      "answered_by": "shell"
+    },
+    "sandbox.types": {
+      "summary": "Which kinds of sandbox this build can make.",
+      "payload": {},
+      "response": "SandboxTypeView[]",
+      "answered_by": "daemon"
+    },
+    "sandbox.list": {
+      "summary": "Every sandbox that exists, oldest first.",
+      "payload": {},
+      "response": "SandboxSummary[]",
+      "answered_by": "daemon"
+    },
+    "sandbox.view": {
+      "summary": "One sandbox, whole, from what is already known.",
+      "payload": {
+        "id": "str"
+      },
+      "response": "SandboxView",
+      "answered_by": "daemon"
+    },
+    "sandbox.refresh": {
+      "summary": "Go and ask the provider what is true now.",
+      "payload": {
+        "id": "str"
+      },
+      "response": "SandboxView",
+      "answered_by": "daemon"
+    },
+    "sandbox.create": {
+      "summary": "Make a sandbox of a registered type.",
+      "payload": {
+        "type": "str",
+        "name": "str",
+        "cpu": "float",
+        "memory": "int",
+        "settings": "any",
+        "uses": "any"
+      },
+      "response": "SandboxView",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "sandbox.transition": {
+      "summary": "start, stop, pause, resume, reset or destroy.",
+      "payload": {
+        "id": "str",
+        "transition": "str"
+      },
+      "response": "SandboxView",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "sandbox.act": {
+      "summary": "Ask a sandbox to do one of the things it declared.",
+      "payload": {
+        "id": "str",
+        "capability": "str",
+        "arguments": "any"
+      },
+      "response": "ActionOutcomeView",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "sandbox.events": {
+      "summary": "What was said after a given sequence number.",
+      "payload": {
+        "since": "int"
+      },
+      "response": "SandboxEventView[]",
+      "answered_by": "daemon"
+    },
+    "disks.list": {
+      "summary": "The disks BeatBox has made, newest first.",
+      "payload": {},
+      "response": "DiskView[]",
+      "answered_by": "daemon"
+    },
+    "beatdrop.inspect": {
+      "summary": "Physical Linux disks with every mountpoint below them, and the filesystems on other disks a live capture can write to.",
+      "payload": {},
+      "response": "BeatDropInspectView",
+      "answered_by": "daemon"
+    },
+    "beatdrop.start": {
+      "summary": "Copy a physical Linux disk into a private raw base image; a disk in use is rebuilt file by file onto a target on another disk.",
+      "payload": {
+        "source": "str",
+        "name": "str",
+        "target": "str?",
+        "leave_out": "str[]"
+      },
+      "response": "Job",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "beatdrop.folders": {
+      "summary": "The folders inside one (the home folder when empty) with what each holds, largest first, for choosing what a live capture leaves out.",
+      "payload": {
+        "path": "str"
+      },
+      "response": "DiskView[]",
+      "answered_by": "daemon"
+    },
+    "beatdrop.measure": {
+      "summary": "Bytes a folder or file on a disk in use holds, for leaving it out of a live capture.",
+      "payload": {
+        "path": "str"
+      },
+      "response": "int",
+      "answered_by": "daemon"
+    },
+    "beatdrop.cancel": {
+      "summary": "Cancel the active physical disk capture, if there is one.",
+      "payload": {},
+      "response": "bool",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "disks.build": {
+      "summary": "Make an empty disk and boot an installer disc at it. Unattended, it ends at the first reboot, and a Windows disc installs without a window. With a machine (as sandbox.create takes it), that machine is made from the disk and started; the job then answers with its id. Answers with a job.",
+      "payload": {
+        "source": "str",
+        "name": "str",
+        "size_gb": "int",
+        "network": "bool",
+        "unattended": "bool",
+        "machine": "any"
+      },
+      "response": "Job",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "disks.finish": {
+      "summary": "Say the install is done: ask its guest to shut down, and end the job.",
+      "payload": {},
+      "response": "Job",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "sandbox.rename": {
+      "summary": "Call a machine or a network something else, in any state. Only its name changes.",
+      "payload": {
+        "id": "str",
+        "name": "str"
+      },
+      "response": "SandboxView",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "sandbox.reconfigure": {
+      "summary": "New processors, memory and settings for a machine that is off. Answers with the machine.",
+      "payload": {
+        "id": "str",
+        "cpu": "float",
+        "memory": "int",
+        "settings": "any"
+      },
+      "response": "SandboxView",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "sandbox.use": {
+      "summary": "Point a sandbox that is off at other sandboxes (a server's machine and network). Answers with the sandbox.",
+      "payload": {
+        "id": "str",
+        "uses": "any"
+      },
+      "response": "SandboxView",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "tools.status": {
+      "summary": "Whether the Windows guest tools are here, and how big fetching them is.",
+      "payload": {},
+      "response": "GuestToolsView",
+      "answered_by": "daemon"
+    },
+    "tools.fetch": {
+      "summary": "Download the pinned Windows guest tools, once. Answers with a job.",
+      "payload": {},
+      "response": "Job",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "tools.insert": {
+      "summary": "Plug the guest tools into a running machine as a read-only USB drive.",
+      "payload": {
+        "sandbox_id": "str"
+      },
+      "response": "ActionOutcomeView",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "disks.inspect": {
+      "summary": "What a disk is and whether a machine can be made of it: its format, size and firmware, VirtualBox snapshots beside it, and for an .ova the disk inside.",
+      "payload": {
+        "path": "str"
+      },
+      "response": "DiskInspectView",
+      "answered_by": "daemon"
+    },
+    "disks.unpack": {
+      "summary": "Take the disk out of an .ova into the disks folder, as a job that answers with where it went.",
+      "payload": {
+        "source": "str",
+        "name": "str"
+      },
+      "response": "Job",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "setup.status": {
+      "summary": "What BeatBox needs from this computer, whether each is here, and whether BeatBox can put it here itself.",
+      "payload": {},
+      "response": "SetupView",
+      "answered_by": "daemon"
+    },
+    "setup.fix": {
+      "summary": "Put one missing thing in place: qemu | acceleration | guest_tools. Asks for the system's own password or approval. Answers with a job.",
+      "payload": {
+        "step": "str"
+      },
+      "response": "Job",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "disks.forget": {
+      "summary": "Delete a disk BeatBox made. Answers with what is left.",
+      "payload": {
+        "name": "str"
+      },
+      "response": "DiskView[]",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "commands.list": {
+      "summary": "The commands kept for running inside machines: every global one, and each machine's own.",
+      "payload": {},
+      "response": "CommandView[]",
+      "answered_by": "daemon"
+    },
+    "commands.save": {
+      "summary": "Keep a command, new or changed. `machine` empty keeps it for every machine. Answers with them all.",
+      "payload": {
+        "command": "any"
+      },
+      "response": "CommandView[]",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "commands.forget": {
+      "summary": "Stop keeping a command. Answers with what is left.",
+      "payload": {
+        "id": "str"
+      },
+      "response": "CommandView[]",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "watchers.list": {
+      "summary": "Every watcher: a line run again and again inside a machine, and what it last answered.",
+      "payload": {},
+      "response": "WatcherView[]",
+      "answered_by": "daemon"
+    },
+    "watchers.save": {
+      "summary": "Start a watcher, or change one (its line, how often, when it tells, paused or not). Answers with them all.",
+      "payload": {
+        "watcher": "any"
+      },
+      "response": "WatcherView[]",
+      "mutates": true,
+      "answered_by": "daemon"
+    },
+    "watchers.forget": {
+      "summary": "Stop and forget a watcher. Answers with what is left.",
+      "payload": {
+        "id": "str"
+      },
+      "response": "WatcherView[]",
+      "mutates": true,
+      "answered_by": "daemon"
+    }
+  },
+  "events": {
+    "job": {
+      "summary": "Progress on work that outlives the request that asked for it.",
+      "payload": "Job",
+      "answered_by": "daemon"
+    },
+    "locale": {
+      "summary": "The language changed; every screen re-reads its text.",
+      "payload": "Locale",
+      "answered_by": "shell"
+    },
+    "closing": {
+      "summary": "The window is trying to close and something is still up. Ask, then answer with host.closing.",
+      "payload": "ClosingView",
+      "answered_by": "shell"
+    },
+    "sandbox": {
+      "summary": "A sandbox said something: a lifecycle change, an action, or a fact from inside.",
+      "payload": "SandboxEventView",
+      "answered_by": "daemon"
+    }
+  }
+}

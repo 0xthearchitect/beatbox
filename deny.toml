@@ -1,0 +1,94 @@
+# The dependency policy, enforced.
+#
+# BeatBox is a security tool, so what it is built from is part of what it
+# claims. The standard library comes first; every crate from outside is named
+# below with the reason it is here, and `cargo deny check` fails CI on any
+# crate not argued for, any known advisory, any licence not listed, and any
+# source other than crates.io.
+#
+# Direct dependencies, and why:
+#
+#   serde, serde_json   the bridge is JSON (contract.json) and so are the
+#                       records under ~/.beatbox/state; hand-writing either
+#                       would be the bug this crate exists to avoid.
+#   sha2                the one download BeatBox makes (the Windows guest
+#                       tools) is kept only if its SHA-256 is the pinned one.
+#                       RustCrypto's, because a hash is not a thing to write
+#                       by hand. The download itself is `curl`, which every
+#                       system BeatBox runs on has: the hash, not the
+#                       transport, is what the file is trusted on, so no TLS
+#                       stack is linked into BeatBox for it. It brings
+#                       `digest` and five small helpers of its own
+#                       (block-buffer, crypto-common, generic-array, typenum,
+#                       cpufeatures) and cfg-if.
+#   log                 the facade every Rust logger speaks. The engine says
+#                       what went wrong for a developer -- a subscriber that
+#                       panicked, a provider's bug -- without choosing where
+#                       it goes; the daemon chooses.
+#   smoltcp             the router's way to the internet ends a guest's TCP
+#                       connection at the router and opens its own from this
+#                       computer (crates/network, `running::tcp`). That takes
+#                       a TCP stack with retransmission, windows and timers,
+#                       on a cable that loses packets on purpose: the one
+#                       thing this file exists to keep from being written by
+#                       hand. smoltcp is the standard user-space one, no
+#                       unsafe I/O. Light machines use its Ethernet, UDP,
+#                       raw-socket and DHCPv4 support on their own cables;
+#                       the internet router uses the IP and TCP support.
+#                       0BSD, which is why that
+#                       licence is listed below. It brings managed (0BSD),
+#                       heapless, hash32, stable_deref_trait, byteorder,
+#                       bitflags 1 and cfg-if; defmt and its macros (syn,
+#                       thiserror) are optional and not built.
+#
+# Everything else in Cargo.lock is a dependency of one of those. The
+# next direct dependency added gets a line here in the same commit.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+# Permissive licences only. A copyleft licence in a shipped binary is a
+# product decision, argued in this file, not a line that slips in.
+allow = [
+    # Zero-clause BSD: MIT without even the notice. smoltcp and managed.
+    "0BSD",
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+
+[licenses.private]
+# BeatBox's own crates carry no licence field; they are not published.
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+# The crate graph, as a rule rather than a habit (Cargo.toml draws it). Each
+# BeatBox crate may be depended on only by the crates listed with it; an arrow
+# Cargo.toml does not draw fails here.
+deny = [
+    { crate = "beatbox-reasons", wrappers = ["beatbox-engine", "beatbox-isolation", "beatbox-host", "beatbox-network", "beatbox-server", "beatbox-api"] },
+    { crate = "beatbox-engine", wrappers = ["beatbox-host", "beatbox-network", "beatbox-server", "beatbox-api"] },
+    { crate = "beatbox-network", wrappers = ["beatbox-api"] },
+    { crate = "beatbox-frame", wrappers = ["beatbox-network", "beatbox-server"] },
+    { crate = "beatbox-server", wrappers = ["beatbox-api"] },
+    { crate = "beatbox-isolation", wrappers = ["beatbox-host", "beatbox-api"] },
+    { crate = "beatbox-host", wrappers = ["beatbox-api"] },
+    { crate = "beatbox-contract", wrappers = ["beatbox-api", "beatboxd"] },
+    { crate = "beatbox-api", wrappers = ["beatboxd"] },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

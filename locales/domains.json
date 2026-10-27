@@ -1,0 +1,83 @@
+{
+  "common": [
+    "window",
+    "modal",
+    "files",
+    "nav",
+    "section",
+    "rename",
+    "switcher",
+    "shell",
+    "closing",
+    "already_open",
+    "yes",
+    "no",
+    "todo"
+  ],
+  "entry": [
+    "hero",
+    "account"
+  ],
+  "setup": [
+    "setup",
+    "run_stage"
+  ],
+  "settings": [
+    "settings"
+  ],
+  "sandbox": [
+    "sandbox",
+    "plain",
+    "machine",
+    "lifecycle",
+    "isolation",
+    "transition",
+    "resource",
+    "kind",
+    "reach",
+    "traffic",
+    "disks",
+    "disk",
+    "beatdrop",
+    "install",
+    "build",
+    "display",
+    "tools"
+  ],
+  "host": [
+    "host",
+    "host_pages",
+    "commands",
+    "watchers",
+    "processes",
+    "pen"
+  ],
+  "network": [
+    "net",
+    "network",
+    "light"
+  ],
+  "server": [
+    "srv",
+    "server"
+  ],
+  "foundations": [
+    "foundations",
+    "cube",
+    "token",
+    "type",
+    "verdict",
+    "demo"
+  ],
+  "engine": [
+    "engine",
+    "daemon",
+    "bridge",
+    "api",
+    "probe",
+    "say",
+    "vocab",
+    "argument",
+    "fact"
+  ]
+}

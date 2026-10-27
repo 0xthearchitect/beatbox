@@ -1,0 +1,528 @@
+{
+  "unknown-action": {
+    "ok": false,
+    "data": null,
+    "error": {
+      "code": "unknown-action",
+      "message": "No such action: no.such",
+      "reason": null
+    }
+  },
+  "unexpected": {
+    "system.probe": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "system.probe does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "system.locale": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "system.locale does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "system.set_language": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "system.set_language does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "jobs.current": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "jobs.current does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "host.closing": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "host.closing does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "host.display": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "host.display does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "files.places": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "files.places does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "files.list": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "files.list does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.types": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.types does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.list": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.list does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.view": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.view does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.refresh": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.refresh does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.create": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.create does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.transition": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.transition does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.act": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.act does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.events": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.events does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "disks.list": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.list does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "disks.build": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.build does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "disks.finish": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.finish does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "sandbox.reconfigure": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.reconfigure does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "tools.status": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "tools.status does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "tools.fetch": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "tools.fetch does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "tools.insert": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "tools.insert does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "disks.inspect": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.inspect does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "disks.unpack": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.unpack does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "setup.status": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "setup.status does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "setup.fix": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "setup.fix does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "disks.forget": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.forget does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "commands.list": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "commands.list does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "commands.save": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "commands.save does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "commands.forget": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "commands.forget does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "watchers.list": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "watchers.list does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "watchers.save": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "watchers.save does not take: bogusField, zeta",
+        "reason": null
+      }
+    },
+    "watchers.forget": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "watchers.forget does not take: bogusField, zeta",
+        "reason": null
+      }
+    }
+  },
+  "missing": {
+    "system.set_language": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "system.set_language needs: language",
+        "reason": null
+      }
+    },
+    "host.closing": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "host.closing needs: choice",
+        "reason": null
+      }
+    },
+    "host.display": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "host.display needs: id, name, password, url",
+        "reason": null
+      }
+    },
+    "files.list": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "files.list needs: path, suffixes",
+        "reason": null
+      }
+    },
+    "sandbox.view": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.view needs: id",
+        "reason": null
+      }
+    },
+    "sandbox.refresh": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.refresh needs: id",
+        "reason": null
+      }
+    },
+    "sandbox.create": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.create needs: cpu, memory, name, settings, type, uses",
+        "reason": null
+      }
+    },
+    "sandbox.transition": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.transition needs: id, transition",
+        "reason": null
+      }
+    },
+    "sandbox.act": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.act needs: arguments, capability, id",
+        "reason": null
+      }
+    },
+    "sandbox.events": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.events needs: since",
+        "reason": null
+      }
+    },
+    "disks.build": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.build needs: machine, name, network, sizeGb, source, unattended",
+        "reason": null
+      }
+    },
+    "sandbox.reconfigure": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "sandbox.reconfigure needs: cpu, id, memory, settings",
+        "reason": null
+      }
+    },
+    "tools.insert": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "tools.insert needs: sandboxId",
+        "reason": null
+      }
+    },
+    "disks.inspect": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.inspect needs: path",
+        "reason": null
+      }
+    },
+    "disks.unpack": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.unpack needs: name, source",
+        "reason": null
+      }
+    },
+    "setup.fix": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "setup.fix needs: step",
+        "reason": null
+      }
+    },
+    "disks.forget": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "disks.forget needs: name",
+        "reason": null
+      }
+    },
+    "commands.save": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "commands.save needs: command",
+        "reason": null
+      }
+    },
+    "commands.forget": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "commands.forget needs: id",
+        "reason": null
+      }
+    },
+    "watchers.save": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "watchers.save needs: watcher",
+        "reason": null
+      }
+    },
+    "watchers.forget": {
+      "ok": false,
+      "data": null,
+      "error": {
+        "code": "bad-payload",
+        "message": "watchers.forget needs: id",
+        "reason": null
+      }
+    }
+  },
+  "closing-without-a-window": {
+    "ok": false,
+    "data": null,
+    "error": {
+      "code": "no-host",
+      "message": "There is no BeatBox window here to close.",
+      "reason": null
+    }
+  },
+  "closing-with-a-bad-choice": {
+    "ok": false,
+    "data": null,
+    "error": {
+      "code": "bad-choice",
+      "message": "A closing answer is one of: stop, leave, cancel.",
+      "reason": null
+    }
+  }
+}
