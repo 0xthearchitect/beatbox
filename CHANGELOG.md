@@ -12,6 +12,8 @@ The first release.
   the computer has it.
 - Freeze a machine, take save points and go back to them, or throw it
   away.
+- Machines can keep running after you close BeatBox, if you choose so in
+  Settings.
 - The disk you start from is never written to.
 
 ### Networks

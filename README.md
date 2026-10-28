@@ -20,6 +20,8 @@ BeatBox is a lab for hands-on cybersecurity practice that runs on your own
 computer. Real machines, real networks, real services. Set them up, attack
 them, defend them, and throw them away when you are done.
 
+<img src="assets/start.png" alt="BeatBox start screen">
+
 ## Machines
 
 Boot any operating system from an installer disc you already have. Each
@@ -29,6 +31,8 @@ window of its own.
 Freeze it. Take a save point before you try something you might want to
 undo, and go back to it when it goes wrong. When you are finished, throw
 the machine away. The disk you started from is never written to.
+
+<img src="assets/machine.png" alt="A machine booting an Ubuntu installer">
 
 ## Networks
 
@@ -43,6 +47,10 @@ did to it.
 
 Save a network to a file, or start a new one from a template.
 
+<img src="assets/network.png" alt="A network with VLANs">
+
+<img src="assets/firewall.png" alt="Firewall rules">
+
 ## Servers
 
 Put services to work inside a machine: a website, a site behind nginx, a
@@ -50,6 +58,8 @@ PostgreSQL database, an email inbox, names for the whole network. BeatBox
 checks what the machine needs before it starts anything, and tells you what
 to install when something is missing. Need something else? Describe your
 own service.
+
+<img src="assets/library.png" alt="Services a server can run">
 
 ## Your disks stay yours
 
