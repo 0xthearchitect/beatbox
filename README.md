@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Break the box. Beat the box.</b><br>
-  Build a network, break it, see what happens.
+  Build a sandbox, break it, see what happens.
 </p>
 
 <p align="center">
