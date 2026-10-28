@@ -1327,6 +1327,9 @@ fn a_network_is_exported_imported_and_brought_back_to_a_save_point() {
             data!({"name": "files.lab", "address": "10.60.0.9"}),
         )
         .unwrap());
+    // srv1's lease lands in the export when its DHCP answer comes; let it
+    // come first, or the exports below can differ from this one.
+    assert_eq!(settles(&lab, "srv1", "10.60.0.10")["address"], "10.60.0.10");
 
     let state = ok(lab.act("network.export", Data::new()).unwrap())["state"].clone();
     // Saved where the person chose, under their name, never over a file.
