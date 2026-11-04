@@ -14,7 +14,7 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::process::{Child, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -1250,7 +1250,7 @@ pub fn start_machine(
             .map(Stdio::from)
             .unwrap_or_else(|_| Stdio::null())
     };
-    let child = Command::new(&command[0])
+    let child = crate::host_os::command(&command[0])
         .args(&command[1..])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -1296,7 +1296,7 @@ pub fn start_install(
     uuid: &str,
 ) -> Result<RunningMachine, MachineError> {
     let command = prepare_install(build, qemu, display, runner, uuid)?;
-    let child = Command::new(&command[0])
+    let child = crate::host_os::command(&command[0])
         .args(&command[1..])
         .stdin(Stdio::null())
         .stdout(Stdio::null())

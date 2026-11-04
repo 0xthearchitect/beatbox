@@ -17,7 +17,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -108,7 +108,7 @@ impl Launch for Spawn {
         let (program, arguments) = argv
             .split_first()
             .ok_or_else(|| std::io::Error::other("nothing to run"))?;
-        let child = Command::new(program)
+        let child = beatbox_isolation::host_os::command(program)
             .args(arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::null())

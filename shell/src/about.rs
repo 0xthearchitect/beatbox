@@ -6,13 +6,13 @@
 //! (`crates/daemon/src/log.rs`); the window only reads its size.
 
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::thread;
 
 use beatbox_contract::AboutView;
 
 use crate::link::Link;
-use crate::{Fault, beatbox_home};
+use crate::{Fault, beatbox_home, host_command};
 
 fn log_file() -> PathBuf {
     beatbox_home().join("beatboxd.log")
@@ -60,7 +60,7 @@ pub fn reveal(what: &str) -> Result<(), Fault> {
             format!("{} is not there yet.", path.display()),
         ));
     }
-    let mut child = Command::new(opener())
+    let mut child = host_command(opener())
         .arg(&path)
         .stdin(Stdio::null())
         .stdout(Stdio::null())

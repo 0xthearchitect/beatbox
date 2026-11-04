@@ -3,7 +3,8 @@
 //! If nothing answers, the window starts `beatboxd` detached, in its own
 //! process group so a terminal closing on the window doesn't take the
 //! daemon and machines with it, then connects again. It inherits this
-//! environment, so a machine's window opens on the same display.
+//! environment, less what an AppImage added ([`crate::host_command`]), so a
+//! machine's window opens on the same display.
 //!
 //! A connection that drops (the daemon was upgraded, or died) is made again
 //! on the next request, starting the daemon if it is gone. A request is sent
@@ -12,7 +13,7 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -131,7 +132,7 @@ impl Link {
             )
         })?;
         log::info!("BeatBox: starting {}", program.display());
-        let mut command = Command::new(program);
+        let mut command = crate::host_command(program);
         command
             .stdin(Stdio::null())
             .stdout(Stdio::null())

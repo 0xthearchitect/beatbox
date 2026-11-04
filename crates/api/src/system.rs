@@ -5,7 +5,7 @@
 //! whether `frida` is on `PATH`, at the version it reports.
 
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 use beatbox_contract::{Availability, SystemProbe};
 use beatbox_engine::{Reason, reason};
@@ -87,7 +87,7 @@ fn qemu() -> Availability {
 }
 
 fn frida() -> Availability {
-    let version = Command::new("frida")
+    let version = beatbox_isolation::host_os::command("frida")
         .arg("--version")
         .stdin(Stdio::null())
         .stderr(Stdio::null())

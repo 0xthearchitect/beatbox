@@ -281,6 +281,16 @@ fn test_what_a_fix_answered_is_read_as() {
     // DISM's "done, restart to finish" is a success.
     assert!(outcome(ACCELERATION, true, answered(3010, "")).0);
     assert!(!outcome(QEMU, true, answered(3010, "")).0);
+    let (ok, said) = outcome(
+        QEMU,
+        true,
+        answered(0xC000_013A_u32 as i32, "Downloading https://x\n"),
+    );
+    assert!(!ok);
+    assert!(
+        format!("{said:?}").contains("Downloading https://x (0xC000013A)"),
+        "{said:?}"
+    );
     // UAC said No, or was never answered: as winget's exit code, or its text.
     for said in [
         outcome(QEMU, true, answered(0x8007_04C7_u32 as i32, "")).1,

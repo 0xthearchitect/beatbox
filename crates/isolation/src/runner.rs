@@ -4,7 +4,7 @@
 //! A trait so a test can answer in its place. [`SystemRunner`] runs things.
 
 use std::io::{self, Read};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -38,7 +38,7 @@ impl Runner for SystemRunner {
                 "nothing to run",
             ));
         };
-        let mut child = Command::new(program)
+        let mut child = crate::host_os::command(program)
             .args(arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

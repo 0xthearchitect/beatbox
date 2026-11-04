@@ -19,7 +19,7 @@
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStdout, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -89,7 +89,7 @@ pub struct Curl;
 impl Fetch for Curl {
     fn open(&self, url: &str, timeout: Duration) -> io::Result<Box<dyn Read + Send>> {
         let seconds = timeout.as_secs().max(1).to_string();
-        let mut child = Command::new("curl")
+        let mut child = beatbox_isolation::host_os::command("curl")
             .args([
                 "--fail",
                 "--silent",

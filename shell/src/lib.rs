@@ -24,7 +24,46 @@ pub mod link;
 pub mod one;
 pub mod preferences;
 
-use std::path::PathBuf;
+/// A program of this computer, whichever way BeatBox was installed.
+///
+/// Inside an AppImage, AppRun points `LD_LIBRARY_PATH`, `PATH` and more into
+/// the image, for us alone. A child that inherits them loads our older
+/// libraries: Fedora's QEMU then dies on a missing GLib symbol, before it can
+/// answer anything, which reads as a QEMU with no window.
+pub fn host_command(program: impl AsRef<OsStr>) -> Command {
+    let mut command = Command::new(program);
+    if let Some(image) = env::var_os("APPDIR").filter(|image| !image.is_empty()) {
+        for (name, value) in env::vars_os() {
+            match outside_image(&value, Path::new(&image)) {
+                Some(kept) if kept.is_empty() => command.env_remove(name),
+                Some(kept) => command.env(name, kept),
+                None => &mut command,
+            };
+        }
+    }
+    command
+}
+
+/// A list of paths without those under `image`, or `None` if it has none.
+pub fn outside_image(value: &OsStr, image: &Path) -> Option<OsString> {
+    let paths: Vec<PathBuf> = env::split_paths(value).collect();
+    if !paths.iter().any(|path| path.starts_with(image)) {
+        return None;
+    }
+    // AppRun leaves a trailing `:` when the variable was unset, and an empty
+    // entry means the current folder.
+    env::join_paths(
+        paths
+            .into_iter()
+            .filter(|path| !path.starts_with(image) && !path.as_os_str().is_empty()),
+    )
+    .ok()
+}
+
+use std::env;
+use std::ffi::{OsStr, OsString};
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 

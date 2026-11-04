@@ -13,7 +13,7 @@ use beatbox_shell::closing::{Close, Closing, Then};
 use beatbox_shell::language::{Language, SUPPORTED};
 use beatbox_shell::link::Link;
 use beatbox_shell::preferences::Preferences;
-use beatbox_shell::{Shell, Window};
+use beatbox_shell::{Shell, Window, outside_image};
 use serde_json::{Value, json};
 
 struct Room(PathBuf);
@@ -577,4 +577,31 @@ fn a_display_window_ends_with_its_machine() {
         ),
         None
     );
+}
+
+#[test]
+fn what_an_appimage_added_is_taken_off_and_the_rest_stays() {
+    let image = std::path::Path::new("/tmp/.mount_BeatBox");
+    let kept = |value: &str| {
+        outside_image(std::ffi::OsStr::new(value), image).map(|kept| kept.into_string().unwrap())
+    };
+
+    assert_eq!(
+        kept("/tmp/.mount_BeatBox/usr/bin/:/tmp/.mount_BeatBox/bin/:/usr/bin:/bin").as_deref(),
+        Some("/usr/bin:/bin"),
+    );
+    // Unset before AppRun: the trailing `:` must not become the current folder.
+    assert_eq!(
+        kept("/tmp/.mount_BeatBox/usr/lib/:/tmp/.mount_BeatBox/lib64/:").as_deref(),
+        Some("")
+    );
+    assert_eq!(
+        kept("/tmp/.mount_BeatBox//usr/lib/gtk-3.0").as_deref(),
+        Some("")
+    );
+    assert_eq!(kept("/tmp/.mount_BeatBox").as_deref(), Some(""));
+    // Not ours: left exactly as it was.
+    assert_eq!(kept("/usr/local/bin:/usr/bin"), None);
+    assert_eq!(kept("/tmp/.mount_BeatBox2/usr/lib"), None);
+    assert_eq!(kept(":0"), None);
 }

@@ -325,6 +325,12 @@ pub fn outcome(key: &str, windows: bool, ran: std::io::Result<Output>) -> (bool,
                 .map(str::trim)
                 .find(|line| !line.is_empty())
                 .map_or_else(|| format!("exit {}", output.code), str::to_owned);
+            // winget can die on its progress line, and only the code says why.
+            let said = if windows {
+                format!("{said} (0x{:08X})", output.code as u32)
+            } else {
+                said
+            };
             (false, Said::Reason(reason!("setup.failed", detail = said)))
         }
         Err(error) => (false, Said::Reason(reason!("setup.failed", detail = error))),

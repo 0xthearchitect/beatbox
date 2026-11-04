@@ -7,14 +7,33 @@
 //! calls below are the only `unsafe` in this crate, each argued where made.
 
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// Whether this build runs on Windows.
 pub const WINDOWS: bool = cfg!(windows);
 /// Whether this build runs on Linux.
 pub const LINUX: bool = cfg!(target_os = "linux");
+
+// --- starting a program ------------------------------------------------------------
+
+/// A program for the daemon to start.
+///
+/// The daemon has no console to share, so on Windows each child would open
+/// an empty black window of its own, and closing it kills the child.
+pub fn command(program: impl AsRef<OsStr>) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    let mut command = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
+}
 
 // --- where QEMU is -----------------------------------------------------------------
 

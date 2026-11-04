@@ -13,12 +13,11 @@
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
 use std::time::{Duration, UNIX_EPOCH};
 
 use beatbox_contract::{Crumb, FileEntry, FolderView, Place};
 
-use crate::Fault;
+use crate::{Fault, host_command};
 
 /// Past this, a folder is cut short: 40,000 build artefacts is a hang, not a
 /// chooser. The page says how many it isn't showing.
@@ -98,7 +97,7 @@ pub fn user_dir(kind: &str, fallback: &str) -> PathBuf {
 /// The same, asking `program`, which tests point at one that isn't there.
 pub fn user_dir_asking(program: &str, kind: &str, fallback: &str) -> PathBuf {
     if cfg!(unix)
-        && let Ok(found) = Command::new(program).arg(kind).output()
+        && let Ok(found) = host_command(program).arg(kind).output()
         && found.status.success()
     {
         let text = String::from_utf8_lossy(&found.stdout).trim().to_owned();
