@@ -34,13 +34,22 @@ exit 0"#;
 /// Start `"$@"` detached from the agent, its output to `$1/$2.log`, in
 /// directory `$3`, and say its pid. `setsid` in the background of a
 /// non-interactive shell is not a group leader, so it execs: the pid echoed
-/// is the service's own.
+/// is the service's own. Until those execs are done the pid still reads as
+/// this shell or `setsid`, and `ALIVE` would call a healthy service dead, so
+/// wait for it, up to two seconds.
 pub const START: &str = r#"mkdir -p "$1" || exit 1
 log="$1/$2.log"
 cd "$3" || exit 1
 shift 3
 setsid "$@" >"$log" 2>&1 </dev/null &
-echo $!"#;
+pid=$!
+i=0
+while [ "$i" -lt 40 ] && kill -0 "$pid" 2>/dev/null \
+  && [ "$(tr '\0' '\n' 2>/dev/null <"/proc/$pid/cmdline" | head -n 1)" != "$1" ]; do
+  sleep 0.05
+  i=$((i+1))
+done
+echo "$pid""#;
 
 /// Exit 0 when pid `$1` is alive *and* is still `$2` -- a pid handed to
 /// something else since is not the service.

@@ -5,7 +5,9 @@
 //! only, like the `process` runtime.
 #![cfg(target_os = "linux")]
 
+use std::fs::Permissions;
 use std::net::TcpListener;
+use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
@@ -37,6 +39,38 @@ fn have(program: &str) -> bool {
         .args(["-c", &format!("command -v {program}")])
         .output()
         .is_ok_and(|out| out.status.success())
+}
+
+/// `setsid` is slow to become the service here, as on a busy machine.
+#[test]
+fn a_start_that_is_slow_to_exec_is_still_alive_when_it_returns() {
+    if !["setsid", "sleep"].iter().all(|p| have(p)) {
+        eprintln!("skipped: needs setsid and sleep");
+        return;
+    }
+    let room = std::env::temp_dir().join(format!("bbx-slow-exec-{}", std::process::id()));
+    let bin = room.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let real = sh("command -v setsid", &[]).1;
+    let wrapper = bin.join("setsid");
+    std::fs::write(
+        &wrapper,
+        format!("#!/bin/sh\nsleep 0.3\nexec {} \"$@\"\n", real.trim()),
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, Permissions::from_mode(0o755)).unwrap();
+    let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap());
+    let out = Command::new("/bin/sh")
+        .env("PATH", path)
+        .args(["-c", START, "sh"])
+        .args([room.to_str().unwrap(), "slow", "/", "sleep", "5"])
+        .output()
+        .unwrap();
+    let pid = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+    let alive = sh(ALIVE, &[&pid, "sleep"]).0;
+    sh(STOP, &[&pid]);
+    let _ = std::fs::remove_dir_all(&room);
+    assert_eq!(alive, 0, "pid {pid:?} had not become the service yet");
 }
 
 #[test]
