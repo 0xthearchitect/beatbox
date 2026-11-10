@@ -612,3 +612,22 @@ export function sampleAddress(cidr: string): string {
   const at = start - (start % size) + 10;
   return [24, 16, 8, 0].map((shift) => Math.floor(at / 2 ** shift) % 256).join('.');
 }
+
+/** The bundled labs' Portuguese names, in English. Names that read the same in both are left out. */
+const LAB_NAMES_EN: Record<string, string> = {
+  azul1: 'blue1', azul2: 'blue2', verde1: 'green1', verde2: 'green2', Azul: 'Blue', Verde: 'Green',
+  portatil: 'laptop', telemovel: 'phone', 'nas.casa': 'nas.home',
+  gestao1: 'mgmt1', gestao2: 'mgmt2', gestao3: 'mgmt3', vendas1: 'sales1', vendas2: 'sales2', vendas3: 'sales3',
+  ficheiros: 'files', 'Gestão': 'Management', Vendas: 'Sales', Servidores: 'Servers',
+  'pc-sede': 'pc-hq', 'srv-sede': 'srv-hq', 'pc-filial': 'pc-branch', 'srv-filial': 'srv-branch', Filial: 'Branch', 'Ligação': 'Link',
+  correio: 'mail', 'www.empresa.pt': 'www.company.example', 'jogos.exemplo': 'games.example', 'anuncios.exemplo': 'ads.example',
+};
+
+/** A lab with its names in English, values and DNS keys alike. */
+export function labInEnglish<T>(lab: T): T {
+  const swap = (v: unknown): unknown => typeof v === 'string' ? LAB_NAMES_EN[v] ?? v
+    : Array.isArray(v) ? v.map(swap)
+      : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [LAB_NAMES_EN[k] ?? k, swap(x)]))
+        : v;
+  return swap(lab) as T;
+}

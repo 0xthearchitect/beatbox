@@ -131,9 +131,10 @@ export function FilePicker({ title, suffixes, filterLabel, start, onPick, onClos
               {t('beatbox.files.up')}
             </Button>
             <div className="bb-pick-crumbs">
-              {(folder?.crumbs ?? []).map((crumb, index) => (
+              {(folder?.crumbs ?? []).map((crumb, index, crumbs) => (
                 <span key={crumb.path}>
-                  {index ? <i aria-hidden="true">/</i> : null}
+                  {/* The top of the disk is named by its own separator, `/` or `C:\`: no second one after it. */}
+                  {index && !/[\\/]$/.test(crumbs[index - 1]?.name ?? '') ? <i aria-hidden="true">/</i> : null}
                   <button type="button" onClick={() => setWhere(crumb.path)}>{crumb.name}</button>
                 </span>
               ))}

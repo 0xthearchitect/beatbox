@@ -296,3 +296,25 @@ test('an example address is the tenth of the network, and none for what is no IP
   assert.equal(net.sampleAddress(''), '');
   assert.equal(net.sampleAddress('fd00::/64'), '');
 });
+
+test('in English, no lab keeps a Portuguese name', () => {
+  // A name the English swap leaves alone must read the same in both languages.
+  const same = new Set(['pc1', 'pc2', 'web', 'nas', 'intranet', 'DMZ']);
+  const left = [];
+  for (const lab of ['dmz', 'home', 'sites', 'switches', 'vlans']) {
+    const pt = JSON.parse(readFileSync(new URL(`../src/labs/${lab}.json`, import.meta.url), 'utf8'));
+    const names = (file) => [
+      ...file.nodes.map((n) => n.node),
+      ...Object.values(file.vlan_names ?? {}),
+      ...Object.keys(file.dns ?? {}),
+      ...(file.firewall.names ?? []).map((n) => n.name),
+      ...Object.keys(file.firewall.groups ?? {}),
+    ];
+    const before = names(pt);
+    const after = names(net.labInEnglish(pt));
+    after.forEach((name, i) => {
+      if (name === before[i] && !same.has(name)) left.push(`${lab}: ${name}`);
+    });
+  }
+  assert.deepEqual(left, []);
+});

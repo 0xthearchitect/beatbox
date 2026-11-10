@@ -12,6 +12,7 @@ import {
   type Dhcp, type DnsRecord, askName, cutBy,
 } from '../network';
 import { href, navigate, useRouteParams } from '../router';
+import { labInEnglish } from '../network';
 import labDmz from '../labs/dmz.json';
 import labHome from '../labs/home.json';
 import labSites from '../labs/sites.json';
@@ -310,24 +311,9 @@ function Page({ page, children, net, title, lede, info, actions }: {
 const LABS = { switches: labSwitches, home: labHome, vlans: labVlans, sites: labSites, dmz: labDmz } as Record<string, NetFile>;
 const STARTS = ['empty', ...Object.keys(LABS)];
 
-/** Labs ship with Portuguese names; these are the English ones. */
-const LAB_NAMES_EN: Record<string, string> = {
-  azul1: 'blue1', azul2: 'blue2', verde1: 'green1', verde2: 'green2', Azul: 'Blue', Verde: 'Green',
-  portatil: 'laptop', telemovel: 'phone', 'nas.casa': 'nas.home',
-  gestao1: 'mgmt1', gestao2: 'mgmt2', gestao3: 'mgmt3', vendas1: 'sales1', vendas2: 'sales2', vendas3: 'sales3',
-  ficheiros: 'files', 'Gestão': 'Management', Vendas: 'Sales', Servidores: 'Servers',
-  'pc-sede': 'pc-hq', 'srv-sede': 'srv-hq', 'pc-filial': 'pc-branch', 'srv-filial': 'srv-branch', Filial: 'Branch', 'Ligação': 'Link',
-  correio: 'mail',
-};
-
-/** Swap a lab's names to the UI language, values and DNS keys alike. */
+/** Labs ship with Portuguese names: a page in English gets them in English. */
 function labIn(lab: NetFile): NetFile {
-  if (activeLanguage().startsWith('pt')) return lab;
-  const swap = (v: unknown): unknown => typeof v === 'string' ? LAB_NAMES_EN[v] ?? v
-    : Array.isArray(v) ? v.map(swap)
-      : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [LAB_NAMES_EN[k] ?? k, swap(x)]))
-        : v;
-  return swap(lab) as NetFile;
+  return activeLanguage().startsWith('pt') ? lab : labInEnglish(lab);
 }
 
 /** A network as `network.export` writes it (crates/network/src/sandbox.rs). */
