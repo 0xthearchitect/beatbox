@@ -121,6 +121,12 @@ cargo build --release --manifest-path shell/Cargo.toml
 Run `shell/target/release/beatbox` (`beatbox.exe` on Windows). It finds the
 engine in `target/release/` and starts it.
 
+## Questions
+
+Ask in [Discussions](https://github.com/0xthearchitect/beatbox/discussions).
+Something broken, or an idea? Open an
+[issue](https://github.com/0xthearchitect/beatbox/issues/new/choose).
+
 ## License
 
 BeatBox is yours to use under either of

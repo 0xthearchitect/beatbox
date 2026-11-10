@@ -3,3 +3,6 @@ contact_links:
   - name: Security problem
     url: https://github.com/0xthearchitect/beatbox/security/advisories/new
     about: Report it privately, not in an issue.
+  - name: A question
+    url: https://github.com/0xthearchitect/beatbox/discussions/categories/q-a
+    about: Stuck, or not sure how to do something? Ask in Discussions.
