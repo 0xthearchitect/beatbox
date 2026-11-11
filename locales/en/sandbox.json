@@ -28,7 +28,7 @@
   "beatbox.machine.channel_noise": "The machine answered something BeatBox did not understand: {detail}",
   "beatbox.machine.refused_command": "The machine refused “{command}”: {detail}",
   "beatbox.machine.snapshot_failed": "The save point {name} could not be made: {detail}",
-  "beatbox.machine.command_outlived_us": "“{command}” is still running inside the machine (process {pid}). BeatBox stopped waiting for it, but did not stop it.",
+  "beatbox.machine.command_outlived_us": "It is still going inside the machine. BeatBox stopped waiting for it, but did not stop it.",
   "beatbox.tools.download_failed": "The guest tools could not be downloaded: {detail}",
   "beatbox.tools.wrong_file": "The download was not the right file (SHA-256 {got}…, expected {expected}…), so it was deleted.",
   "beatbox.tools.not_here": "The guest tools have not been downloaded yet.",

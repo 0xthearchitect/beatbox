@@ -3512,7 +3512,8 @@ export function NetworkFlows() {
               </div>
               <Card title={<><Icon name="search" size="sm" />{t('beatbox.net.lookups.title')}</>} info={outside ? t('beatbox.net.lookups.what_short') : undefined}
                     note={t('beatbox.net.lookups.counted', { names: count(lookups.length), asks: count(asks) })}>
-                {top && asks && top.count / asks >= 0.5 ? (
+                {/* Only about a name nobody answers: one that resolves is just a busy machine. */}
+                {top && asks && !top.answer && top.count / asks >= 0.5 ? (
                   <p className="bb-net-insight">{t('beatbox.net.lookups.most', {
                     percent: Math.round((top.count / asks) * 100), node: net.label(top.node), name: top.name,
                   })}</p>

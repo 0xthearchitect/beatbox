@@ -733,7 +733,8 @@ function Settings({ srv }: { srv: Server }) {
         </div>
         {running ? (
           <>
-            <b>{current?.name ?? t('beatbox.srv.new.none')}</b>
+            {/* The lists load after the page opens: a server that points somewhere isn't "None" meanwhile. */}
+            <b>{current?.name ?? (uses[role] ? '' : t('beatbox.srv.new.none'))}</b>
           </>
         ) : (
           <div className="bb-srv-selectrow">

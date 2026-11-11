@@ -32,7 +32,7 @@ Freeze it. Take a save point before you try something you might want to
 undo, and go back to it when it goes wrong. When you are finished, throw
 the machine away. The disk you started from is never written to.
 
-<img src="assets/machine.png" alt="A machine booting an Ubuntu installer">
+https://github.com/user-attachments/assets/d5210dd9-5c82-453e-9711-5679008a1694
 
 ## Networks
 
@@ -47,9 +47,7 @@ did to it.
 
 Save a network to a file, or start a new one from a template.
 
-<img src="assets/network.png" alt="A network with VLANs">
-
-<img src="assets/firewall.png" alt="Firewall rules">
+https://github.com/user-attachments/assets/f1af788b-6c07-4ee9-a1d7-952d1a1efaf7
 
 ## Servers
 
@@ -59,7 +57,7 @@ checks what the machine needs before it starts anything, and tells you what
 to install when something is missing. Need something else? Describe your
 own service.
 
-<img src="assets/library.png" alt="Services a server can run">
+https://github.com/user-attachments/assets/53e1a289-0842-4e98-8593-1fc57d5ab2a6
 
 ## Your disks stay yours
 

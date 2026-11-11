@@ -33,6 +33,8 @@ interface Run {
   stderr: string;
   seconds: number;
   trouble: string;
+  /** Passed its time limit and is still going inside: not a failure. */
+  still?: boolean;
   rows?: Row[];
   /** Ping results: how many answered, and who was asked. */
   echo?: string;
@@ -80,6 +82,7 @@ export function Commands() {
   const [timeout, setTimeoutSeconds] = useState(30);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
+  const [going, setGoing] = useState('');
   const [shown, setShown] = useState<Run | null>(null);
   const [, redraw] = useState(0);
   const [editing, setEditing] = useState<Command | null>(null);
@@ -106,6 +109,7 @@ export function Commands() {
 
   async function run(name: string, line: string, echo?: string) {
     setBusy(true);
+    setGoing(line);
     const started = performance.now();
     const at = new Date().toLocaleTimeString([], { hour12: false });
     const done = (part: Partial<Run>) => remember({
@@ -118,7 +122,7 @@ export function Commands() {
       if (outcome.ok) {
         done({ exit: Number(data.exit_code ?? 0), stdout: String(data.stdout ?? ''), stderr: String(data.stderr ?? '') });
       } else {
-        done({ trouble: say(outcome.reason) });
+        done({ trouble: say(outcome.reason), still: outcome.reason?.code === 'machine.command_outlived_us' });
       }
     } catch (error) {
       done({ trouble: fault(error) });
@@ -128,6 +132,7 @@ export function Commands() {
 
   async function processes() {
     setBusy(true);
+    setGoing(windows ? 'tasklist' : 'ps');
     const started = performance.now();
     try {
       const outcome = await call('sandbox.act', { id, capability: 'process.list', arguments: {} });
@@ -280,7 +285,8 @@ export function Commands() {
 
             <Card>
               {told ? <p className="bb-host-say" style={{ margin: '0 0 8px' }}>{told}</p> : null}
-              {shownNow ? <Answer run={shownNow} machine={machine} ending={ending} onEnding={setEnding} onEnd={(row) => void end(row)} />
+              {busy ? <p className="bb-host-say">{t('beatbox.commands.going', { line: going })}</p>
+                : shownNow ? <Answer run={shownNow} machine={machine} ending={ending} onEnding={setEnding} onEnd={(row) => void end(row)} />
                 : <p className="bb-host-say">{t('beatbox.commands.nothing_yet')}</p>}
               <form className="bb-cmd-typed" onSubmit={(e) => { e.preventDefault(); if (typed.trim()) void run(typed.trim(), typed.trim()); }}>
                 <span className="bb-cmd-prompt" aria-hidden="true">$</span>
@@ -298,7 +304,9 @@ export function Commands() {
                 <span className="bb-wf-label">{t('beatbox.commands.earlier')}</span>
                 {(RAN.get(id) ?? []).slice(0, 10).map((ran, index) => (
                   <button key={index} type="button" className={`bb-cmd-ran${ran === shown ? ' on' : ''}`} onClick={() => setShown(ran)}>
-                    <span className={ran.exit === 0 ? 'bb-mint' : 'bb-rose'}><Icon name={ran.exit === 0 ? 'check' : 'close'} size="xs" /></span>
+                    <span className={ran.exit === 0 ? 'bb-mint' : ran.still ? 'bb-amber' : 'bb-rose'}>
+                      <Icon name={ran.exit === 0 ? 'check' : ran.still ? 'clock' : 'close'} size="xs" />
+                    </span>
                     {ran.name}
                     <span className="bb-mono bb-faint">{ran.at}</span>
                   </button>
@@ -324,7 +332,8 @@ function Answer({ run, machine, ending, onEnding, onEnd }: {
   const echoes = run.echo && !run.trouble ? readEchoes(run.stdout) : null;
   const ok = !run.trouble && run.exit === 0 && (!echoes || echoes.length > 0);
   const mean = echoes?.length ? Math.round(echoes.reduce((sum, echo) => sum + echo.ms, 0) / echoes.length) : 0;
-  const title = run.trouble ? t('beatbox.commands.answer.refused')
+  const title = run.still ? t('beatbox.commands.answer.still')
+    : run.trouble ? t('beatbox.commands.answer.refused')
     : echoes ? (echoes.length ? t('beatbox.commands.answer.echoes', { name: run.echo!, count: echoes.length, sent: 4 })
       : t('beatbox.commands.answer.silent', { name: run.echo! }))
     : run.rows ? t('beatbox.commands.answer.rows', { count: run.rows.length })
@@ -333,7 +342,9 @@ function Answer({ run, machine, ending, onEnding, onEnd }: {
   return (
     <div className="bb-cmd-answer">
       <div className="bb-cmd-answerhead">
-        <span className={`bb-net-mark ${ok ? 'bb-net-mark--ok' : 'bb-net-mark--no'}`}><Icon name={ok ? 'check' : 'close'} size="sm" /></span>
+        <span className={`bb-net-mark bb-net-mark--${ok ? 'ok' : run.still ? 'wait' : 'no'}`}>
+          <Icon name={ok ? 'check' : run.still ? 'clock' : 'close'} size="sm" />
+        </span>
         <span>
           <b>{title}</b>
           <small>{echoes?.length ? t('beatbox.commands.answer.mean', { ms: mean }) : run.name}</small>
@@ -379,7 +390,7 @@ function Answer({ run, machine, ending, onEnding, onEnd }: {
 
 function Words({ run }: { run: Run }) {
   return (
-    <pre className="bb-cmd-out"><span className="bb-cmd-prompt">$ </span>{run.line}{'\n'}{run.stdout}{run.stderr ? <span className="bb-rose">{run.stderr}</span> : null}{run.trouble ? <span className="bb-rose">{run.trouble}</span> : null}</pre>
+    <pre className="bb-cmd-out"><span className="bb-cmd-prompt">$ </span>{run.line}{'\n'}{run.stdout}{run.stderr ? <span className="bb-rose">{run.stderr}</span> : null}{run.trouble ? <span className={run.still ? undefined : 'bb-rose'}>{run.trouble}</span> : null}</pre>
   );
 }
 

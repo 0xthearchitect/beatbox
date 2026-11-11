@@ -1497,12 +1497,12 @@ export function Sandbox() {
                 <SaveNow busy={busy}
                          onSave={(name) => void ask('snapshot.create', { name }, t('beatbox.machine.told.saved', { name }))} />
               ) : null}
-              <span className="bb-spacer" />
+              {/* The message takes only the room left, so a long one never pushes a button onto a new row. */}
               {told ? (
-                <span className={`bb-mach-told${told.ok ? '' : ' bb-mach-told--no'}`} role="status">
-                  <time className="bb-mono">{told.at}</time><i />{told.text}
+                <span className={`bb-mach-told${told.ok ? '' : ' bb-mach-told--no'}`} role="status" title={told.text}>
+                  <time className="bb-mono">{told.at}</time><i /><span>{told.text}</span>
                 </span>
-              ) : null}
+              ) : <span className="bb-spacer" />}
               {['reset', 'destroy'].filter(may).map((name) => {
                 const word = runtimeText(`beatbox.plain.do.${name}`);
                 return (

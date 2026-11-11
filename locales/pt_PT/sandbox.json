@@ -28,7 +28,7 @@
   "beatbox.machine.channel_noise": "A máquina respondeu algo que o BeatBox não percebeu: {detail}",
   "beatbox.machine.refused_command": "A máquina recusou «{command}»: {detail}",
   "beatbox.machine.snapshot_failed": "Não foi possível criar o ponto de gravação {name}: {detail}",
-  "beatbox.machine.command_outlived_us": "«{command}» continua a correr dentro da máquina (processo {pid}). O BeatBox deixou de esperar por ele, mas não o parou.",
+  "beatbox.machine.command_outlived_us": "Continua a correr dentro da máquina. O BeatBox deixou de esperar por ele, mas não o parou.",
   "beatbox.tools.download_failed": "Não foi possível descarregar as guest tools: {detail}",
   "beatbox.tools.wrong_file": "O que chegou não era o ficheiro certo (SHA-256 {got}…, esperado {expected}…), por isso foi apagado.",
   "beatbox.tools.not_here": "As guest tools ainda não foram descarregadas.",

@@ -380,8 +380,9 @@ function Helpers({ srv }: { srv: Server }) {
     issues.push({ key: program, tone: 'warn', words: t('beatbox.srv.helpers.missing', { program, services: who.join(', ') }), action: openButton });
   }
   if (!uses.network) issues.push({ key: 'no-network', tone: 'off', words: t('beatbox.srv.helpers.none_network') });
-  else if (networkState !== 'running') issues.push({ key: 'network-off', tone: 'off', words: t('beatbox.srv.helpers.network_off'),
-    action: networkState && networkState !== 'gone' ? turnOnButton(text(uses.network)) : undefined });
+  // No state yet means a page that just opened, not a network that is off.
+  else if (networkState && networkState !== 'running') issues.push({ key: 'network-off', tone: 'off', words: t('beatbox.srv.helpers.network_off'),
+    action: networkState !== 'gone' ? turnOnButton(text(uses.network)) : undefined });
   else if (!names && internal.length) issues.push({ key: 'names', tone: 'off', words: t('beatbox.srv.helpers.names_waiting') });
   // The fine stuff goes in the tooltip. Nobody reads a wall of green ticks.
   const hostSaid = [stateOf(hostState), uses.network && !apart ? t('beatbox.srv.helpers.cable_ok', { network: networkName }) : '',
@@ -725,15 +726,19 @@ function Side({ srv, service }: { srv: Server; service: Service }) {
 
 type Need = { key: string; state: 'ok' | 'no' | 'off'; words: string };
 
-/** What it needs to start. 'off' = couldn't check yet (machine off). */
+/**
+ * What it needs to start. 'off' = couldn't check yet: the machine is off,
+ * or the check hasn't answered. Every page asks on its own, so a page that
+ * just opened has no answer for a second, and that is not a "no".
+ */
 function needsOf(srv: Server, definition: Definition | undefined, check: Check | null): Need[] {
   if (!definition || !srv.server) return [];
   const host = check?.host;
   if (definition.runtime === 'internal') {
-    return [{ key: 'net', state: check?.network?.state === 'running' ? 'ok' : 'no', words: t('beatbox.srv.reqs.network_on') }];
+    return [{ key: 'net', state: !check ? 'off' : check.network?.state === 'running' ? 'ok' : 'no', words: t('beatbox.srv.reqs.network_on') }];
   }
   return [
-    { key: 'on', state: host?.state === 'running' ? 'ok' : 'no', words: t('beatbox.srv.reqs.machine_on') },
+    { key: 'on', state: !check ? 'off' : host?.state === 'running' ? 'ok' : 'no', words: t('beatbox.srv.reqs.machine_on') },
     { key: 'agent', state: host?.state !== 'running' ? 'off' : host.agent ? 'ok' : 'no', words: t('beatbox.srv.reqs.agent') },
     ...(definition.requires ?? []).map((program) => ({
       key: program,
