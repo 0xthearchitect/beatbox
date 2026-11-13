@@ -7,7 +7,7 @@
 [package]
 name = "beatbox"
 description = "BeatBox's window: the page, and the person's half of the contract"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.96"
 publish = false

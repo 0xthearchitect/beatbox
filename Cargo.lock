@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "beatbox-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "beatbox-contract",
  "beatbox-engine",
@@ -21,7 +21,7 @@ dependencies = [
 
 [[package]]
 name = "beatbox-contract"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -29,7 +29,7 @@ dependencies = [
 
 [[package]]
 name = "beatbox-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "beatbox-reasons",
  "log",
@@ -39,11 +39,11 @@ dependencies = [
 
 [[package]]
 name = "beatbox-frame"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "beatbox-host"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "beatbox-engine",
  "beatbox-isolation",
@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "beatbox-isolation"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "beatbox-reasons",
  "log",
@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "beatbox-network"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "beatbox-engine",
  "beatbox-frame",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "beatbox-reasons"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -83,7 +83,7 @@ dependencies = [
 
 [[package]]
 name = "beatbox-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "beatbox-engine",
  "beatbox-frame",
@@ -95,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "beatboxd"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "beatbox-api",
  "beatbox-contract",

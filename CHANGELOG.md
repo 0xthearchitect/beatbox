@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.1.1 (2026-11-13)
+
+Fixes.
+
+### Machines
+
+- A long status message no longer pushes a machine's buttons onto a
+  second row.
+- A command that runs past its time limit and keeps going says "Still
+  running", not that it failed. While a command runs, the page says which
+  one.
+
+### Networks
+
+- The "Exposed servers" template uses English names when BeatBox is in
+  English.
+- The file picker no longer shows the top of the disk twice in its path.
+
+### Servers
+
+- A machine switched off and on, or gone back to a save point, while its
+  server page was closed no longer leaves the services saying "Did not
+  start". They say they stopped with their machine.
+- A server page that has just opened no longer flashes "Off", "None" or a
+  missing machine before it has checked.
+- Configuration shows your kinds-of-service folder as `~/…` instead of
+  your full home path.
+
 ## 0.1.0 (2026-11-05)
 
 The first release.
