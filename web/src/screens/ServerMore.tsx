@@ -646,7 +646,7 @@ const ON_EXIT = ['leave', 'retry', 'always'] as const;
 
 /** Mirrors what `server.settings` returns. */
 interface Own {
-  start_period_s: number; restore: boolean; on_exit: string; library: string;
+  start_period_s: number; restore: boolean; on_exit: string; library: string; libraryShown: string;
   domain: string; certificate: boolean; secrets: { name: string; usedBy: string[] }[];
 }
 
@@ -667,7 +667,7 @@ function Settings({ srv }: { srv: Server }) {
     try {
       const said = await act(srv.id, 'server.settings', args);
       setOwn({
-        start_period_s: Number(said.start_period_s), restore: said.restore === true, on_exit: text(said.on_exit) || 'leave', library: text(said.library),
+        start_period_s: Number(said.start_period_s), restore: said.restore === true, on_exit: text(said.on_exit) || 'leave', library: text(said.library), libraryShown: text(said.library_shown),
         domain: text(said.domain), certificate: said.certificate === true,
         secrets: rows(said.secrets).map((each) => ({ name: text(each.name), usedBy: Array.isArray(each.used_by) ? each.used_by.map(String) : [] })),
       });
@@ -829,7 +829,7 @@ function Settings({ srv }: { srv: Server }) {
         <section className="bb-srv-box">
           <h2>{t('beatbox.srv.set.library')} <Info text={t('beatbox.srv.set.library_what')} /></h2>
           <div className="bb-srv-row">
-            <span className="bb-input bb-mono bb-srv-path-field">{own?.library || '—'}</span>
+            <span className="bb-input bb-mono bb-srv-path-field">{own?.libraryShown || own?.library || '—'}</span>
             <button type="button" className="bb-srv-copy" aria-label={t('beatbox.srv.set.copy_path')} title={t('beatbox.srv.set.copy_path')}
                     disabled={!own?.library}
                     onClick={() => { void navigator.clipboard?.writeText(own?.library ?? ''); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }}>

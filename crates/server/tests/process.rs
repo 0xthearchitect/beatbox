@@ -39,6 +39,8 @@ struct Guest {
     unavailable: bool,
     /// Up, but its agent not yet: a machine still booting.
     no_agent: bool,
+    /// When it last went back to a save point, as the Host says it.
+    went_back_at: Option<u64>,
     addresses: Option<Vec<String>>,
     /// Every health check run, as argv after `timeout 3`.
     checks: Vec<Vec<String>>,
@@ -80,7 +82,7 @@ impl SandboxProvider for PretendHost {
         let guest = self.guest.lock().unwrap();
         Observation {
             alive: Some(true),
-            facts: data!({"family": guest.family, "addresses": guest.addresses.clone().unwrap_or_else(|| vec!["10.10.10.10".into()])}),
+            facts: data!({"family": guest.family, "addresses": guest.addresses.clone().unwrap_or_else(|| vec!["10.10.10.10".into()]), "went_back_at": guest.went_back_at}),
             ..Observation::default()
         }
     }
@@ -1704,6 +1706,53 @@ fn a_machine_booted_afresh_leaves_its_services_stopped_not_failed() {
     // Still meant to run: the page says it stopped with its machine.
     assert_eq!(back["services"][0]["wanted"], true);
     assert!(w.log.matching("service.failed").is_empty());
+}
+
+/// Switched off and on while nobody asked the Server: it never saw the
+/// machine off, but the machine started since, so not a death.
+#[test]
+fn a_machine_restarted_unseen_leaves_its_services_stopped_not_failed() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "http-static", "name": "site"}),
+    ));
+    ok(act(&w.server, "service.start", data!({"service": "site"})));
+    w.host.stop().unwrap();
+    w.guest.lock().unwrap().running.clear();
+    w.host.start().unwrap();
+    let back = ok(act(&w.server, "service.list", data!({})));
+    assert_eq!(back["services"][0]["state"], "stopped");
+    assert_eq!(back["services"][0]["wanted"], true);
+    assert!(w.log.matching("service.failed").is_empty());
+}
+
+/// Gone back to a save point from before the service: the machine never
+/// stopped, and the process is gone with the rest of its present.
+#[test]
+fn a_machine_gone_back_to_before_a_service_leaves_it_stopped_not_failed() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "http-static", "name": "site"}),
+    ));
+    ok(act(&w.server, "service.start", data!({"service": "site"})));
+    {
+        let mut guest = w.guest.lock().unwrap();
+        guest.running.clear();
+        guest.went_back_at = Some(1_700_000_000_000);
+    }
+    w.host.refresh().unwrap();
+    let back = ok(act(&w.server, "service.list", data!({})));
+    assert_eq!(back["services"][0]["state"], "stopped");
+    assert!(w.log.matching("service.failed").is_empty());
+    // Started again in this run, a death is a death.
+    ok(act(&w.server, "service.start", data!({"service": "site"})));
+    w.guest.lock().unwrap().running.clear();
+    let died = ok(act(&w.server, "service.list", data!({})));
+    assert_eq!(died["services"][0]["state"], "failed");
 }
 
 #[test]

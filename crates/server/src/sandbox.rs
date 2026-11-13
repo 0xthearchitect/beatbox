@@ -390,6 +390,10 @@ struct Instance {
     /// When the last of those was, in milliseconds since the epoch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     restarted_at: Option<u64>,
+    /// The run of its machine it was last seen running in
+    /// ([`ServerSandbox::machine_run`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    seen_in: Option<String>,
 }
 
 impl Instance {
@@ -630,6 +634,7 @@ impl ServerSandbox {
             "certificate": self.own.certificate,
             "secrets": secrets,
             "library": self.library().map(|folder| folder.to_string_lossy().into_owned()),
+            "library_shown": self.library().map(|folder| from_home(&folder, std::env::home_dir())),
         }))
     }
 
@@ -956,6 +961,7 @@ impl ServerSandbox {
             after,
             restarts: 0,
             restarted_at: None,
+            seen_in: None,
         };
         let said =
             data!({"service": name, "definition": instance.definition.id, "state": "created"});
@@ -1783,11 +1789,13 @@ impl ServerSandbox {
         };
         self.discover_host_addresses();
         let address = self.address_of(false);
+        let run = self.machine_run();
         let instance = &mut self.services[at];
         match alive {
             Some(pid) => {
                 instance.state = State::Running;
                 instance.pid = Some(pid);
+                instance.seen_in = run;
                 let endpoints = self.services[at].endpoints(address.as_deref());
                 self.emit(
                     "service.started",
@@ -1860,7 +1868,17 @@ impl ServerSandbox {
 
     /// Whether it is really running: asked of the guest, so a service that
     /// died on its own is found here, said, and marked `failed`.
+    /// Which run of the machine this is: when it last started, and when it
+    /// last went back to a save point. Either can happen while nobody asks
+    /// the Server, and leaves the guest without the processes of before.
+    fn machine_run(&self) -> Option<String> {
+        let state = self.peers.state("host")?;
+        let went_back = state.fact("went_back_at").cloned().unwrap_or_default();
+        Some(format!("{} {went_back}", state.since))
+    }
+
     fn running(&mut self, at: usize) -> Result<bool, Reason> {
+        let run = self.machine_run();
         let instance = &self.services[at];
         if instance.definition.is_internal() {
             // Its network off or deleted: nobody can reach it, so it is not
@@ -1884,11 +1902,18 @@ impl ServerSandbox {
         let was = instance.state;
         let program = fill(&command[0], &instance.values());
         match process::alive(&self.peers, pid, &program) {
-            Ok(true) if was == State::Running => return Ok(true),
+            Ok(true) if was == State::Running => {
+                if self.services[at].seen_in != run {
+                    self.services[at].seen_in = run;
+                    let _ = self.save();
+                }
+                return Ok(true);
+            }
             Ok(true) => {
                 let name = instance.name.clone();
                 let address = self.address_of(false);
                 self.services[at].state = State::Running;
+                self.services[at].seen_in = run;
                 let endpoints = self.services[at].endpoints(address.as_deref());
                 self.emit(
                     "service.started",
@@ -1900,6 +1925,16 @@ impl ServerSandbox {
             // Gone while the machine was off: booted afresh, not failed.
             Ok(false) if was == State::Stopped => {
                 self.services[at].pid = None;
+                let _ = self.save();
+                return Ok(false);
+            }
+            // Same, when nobody asked while it was off, or it went back to a
+            // save point from before the service: its machine's, not its own.
+            Ok(false) if instance.seen_in.is_some() && instance.seen_in != run => {
+                let instance = &mut self.services[at];
+                instance.state = State::Stopped;
+                instance.pid = None;
+                self.set_health(at, Wellness::Unknown);
                 let _ = self.save();
                 return Ok(false);
             }
@@ -2362,5 +2397,38 @@ impl SandboxProvider for ServerSandbox {
 
     fn perform(&mut self, action: &Action) -> Result<Data, ProviderError> {
         self.act(action).map_err(ProviderError::new)
+    }
+}
+
+/// `folder` as `~/…` when it is under `home`. The page shows this one, so a
+/// screenshot doesn't carry the user's name; copying still gives the full path.
+fn from_home(folder: &Path, home: Option<PathBuf>) -> String {
+    match home
+        .as_deref()
+        .and_then(|home| folder.strip_prefix(home).ok())
+    {
+        Some(rest) => Path::new("~").join(rest).to_string_lossy().into_owned(),
+        None => folder.to_string_lossy().into_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_folder_under_home_is_shown_from_the_tilde() {
+        let home = Some(PathBuf::from("/home/ana"));
+        // `~\kinds` on Windows: the system's own separator.
+        assert_eq!(
+            from_home(Path::new("/home/ana/kinds"), home.clone()),
+            Path::new("~").join("kinds").to_string_lossy()
+        );
+        assert_eq!(
+            from_home(Path::new("/home/anabela/kinds"), home.clone()),
+            "/home/anabela/kinds"
+        );
+        assert_eq!(from_home(Path::new("/srv/kinds"), home), "/srv/kinds");
+        assert_eq!(from_home(Path::new("/srv/kinds"), None), "/srv/kinds");
     }
 }

@@ -366,6 +366,11 @@ pub struct HostSandbox {
     /// Why the last start could not carry on from the saved state and
     /// booted afresh instead; said until it stops.
     state_lost: Option<Reason>,
+    /// When it last went back to a save point while running, in ms since
+    /// 1970. Its processes are the save point's from then on, and nothing
+    /// else changes: a Server reads this to tell a service gone with them
+    /// from one that died.
+    went_back_at: Option<u64>,
     /// For each save point, the hardware it was taken on ([`Self::setup_now`]).
     /// Written beside the overlay; a save point older than this record has
     /// none, and is tried without the check.
@@ -470,6 +475,7 @@ impl HostSandbox {
             setups,
             saved_state,
             state_lost: None,
+            went_back_at: None,
             halted_because: None,
             pen: None,
             media: None,
@@ -953,6 +959,7 @@ impl HostSandbox {
             "snapshots": self.snapshots,
             "saved_state": self.saved_state,
             "saved_state_lost": self.state_lost.is_some(),
+            "went_back_at": self.went_back_at,
             "pen": self.pen,
             "firmware": self.firmware(),
             "bootable": self.bootable(),
@@ -1435,6 +1442,10 @@ impl HostSandbox {
         }
         match self.require_monitor()?.snapshot_load(&name) {
             Ok(()) => {
+                self.went_back_at = std::time::SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .ok()
+                    .and_then(|since| u64::try_from(since.as_millis()).ok());
                 self.emit("snapshot.restored", data!({"name": name}));
                 Ok(data!({"name": name}))
             }
