@@ -356,7 +356,6 @@ pub struct HostSandbox {
     display_websocket: PathBuf,
     display_password: PathBuf,
     machine: Option<RunningMachine>,
-    reattach_failed: bool,
     monitor: Option<Monitor>,
     agent: Option<Box<dyn Agent>>,
     agent_asked: Option<Instant>,
@@ -467,7 +466,6 @@ impl HostSandbox {
             optical,
             overlay,
             machine: None,
-            reattach_failed: false,
             monitor: None,
             agent: None,
             agent_asked: None,
@@ -993,9 +991,11 @@ impl HostSandbox {
         }
     }
 
-    fn lost(&self, why: Reason) -> Observation {
+    /// Gone, but a machine at rest, not a broken one: it starts again.
+    fn at_rest(&self, why: Reason) -> Observation {
         Observation {
             alive: Some(false),
+            halted: true,
             reason: Some(why),
             facts: self.resting_facts(),
             ..Observation::default()
@@ -1686,12 +1686,6 @@ impl HostSandbox {
     fn switch_off(&mut self) -> Result<(), ProviderError> {
         if self.machine.is_none() && self.monitor.is_none() {
             self.forget_channels();
-            // A guest found gone left its socket files behind; switched off,
-            // it is a machine at rest, not one to look for again.
-            if self.reattach_failed {
-                self.forget_sockets();
-                self.reattach_failed = false;
-            }
             return Ok(());
         }
         if let Some(monitor) = self.monitor.as_mut()
@@ -1898,11 +1892,6 @@ impl SandboxProvider for HostSandbox {
     /// one that is gone.
     fn observe(&mut self) -> Observation {
         if self.machine.is_none() && self.monitor.is_none() {
-            if self.reattach_failed {
-                // Asked before, and there was nobody there. Asking again would
-                // cost the same connection attempt every single poll.
-                return self.lost(reason!("host.guest_lost"));
-            }
             if let Some(why) = self.halted_because.take() {
                 // A reattached guest switched off from here: no process of
                 // ours to see leave, so said once, now.
@@ -1924,9 +1913,12 @@ impl SandboxProvider for HostSandbox {
                 };
             }
             if !self.reattach(RECONNECT_TIMEOUT) {
-                // A file from a guest with nobody answering on it any more.
-                self.reattach_failed = true;
-                return self.lost(reason!("host.guest_lost"));
+                // Gone while BeatBox was closed: a power cut, as below. The
+                // disk is fine; `failed` would leave only reset, which wipes
+                // it. Its sockets go, so the next look finds a machine at rest.
+                self.forget_channels();
+                self.forget_sockets();
+                return self.at_rest(reason!("host.guest_lost"));
             }
         }
         if let Some(status) = self.machine.as_mut().and_then(RunningMachine::exit_status) {
@@ -1961,13 +1953,7 @@ impl SandboxProvider for HostSandbox {
             self.forget_channels();
             self.forget_sockets();
             self.machine = None;
-            return Observation {
-                alive: Some(false),
-                halted: true,
-                reason: Some(why),
-                facts: self.resting_facts(),
-                ..Observation::default()
-            };
+            return self.at_rest(why);
         }
 
         if self.wants_agent && self.agent.is_none() {

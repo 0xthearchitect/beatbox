@@ -1,8 +1,8 @@
 //! A sandbox surviving BeatBox closing and opening again.
 //!
 //! Dropping the `Api` is BeatBox closing; opening another on the same
-//! folders is it coming back. The mock throughout: no question here needs
-//! a QEMU.
+//! folders is it coming back. The mock, except where a Server needs its
+//! network: no question here needs a QEMU.
 
 mod support;
 
@@ -140,6 +140,109 @@ fn test_it_comes_back_after_the_runtime_is_forgotten() {
     let restored = api.runtime().get(&sandbox_id).unwrap();
     assert_eq!(restored.name(), "alice");
     assert_eq!(restored.lifecycle(), Lifecycle::Running);
+}
+
+/// A machine an older BeatBox recorded as failed because its guest was gone
+/// while it was closed comes back stopped: as failed, only reset was left,
+/// and reset wipes its disk. Any other failure stays one.
+#[test]
+fn test_one_recorded_lost_comes_back_stopped() {
+    let room = Room::new("persist");
+    let api = open(room.path());
+    let lost = api.runtime().create(alice()).unwrap().id();
+    let broken = api
+        .runtime()
+        .create(SandboxConfig::new("mock").unwrap().named("bob"))
+        .unwrap()
+        .id();
+    drop(api);
+    for (sandbox_id, code) in [(&lost, "host.guest_lost"), (&broken, "engine.sandbox_lost")] {
+        let path = room.join(&format!("state/{sandbox_id}.json"));
+        let mut written = record(&room, sandbox_id);
+        written["lifecycle"] = "failed".into();
+        written["reason"] = serde_json::json!({"code": code, "values": {}});
+        fs::write(path, written.to_string()).unwrap();
+    }
+
+    let api = open(room.path());
+    let lost = api.runtime().get(&lost).unwrap();
+    assert_eq!(lost.lifecycle(), Lifecycle::Stopped);
+    assert_eq!(lost.state().reason.unwrap().code, "host.guest_lost");
+    assert_eq!(
+        api.runtime().get(&broken).unwrap().lifecycle(),
+        Lifecycle::Failed
+    );
+}
+
+/// Records come back in file-name order. A Server whose record comes first
+/// found no network yet; its DNS still has to answer once both are back.
+/// Unix only: a network does not run on Windows yet.
+#[cfg(unix)]
+#[test]
+fn test_a_server_restored_before_its_network_still_publishes_its_names() {
+    let room = Room::new("persist");
+    let both = || {
+        Api::open(ApiParts {
+            types: vec![
+                beatbox_network::NetworkSandbox::spec(),
+                beatbox_server::ServerSandbox::spec(),
+            ],
+            ..parts(room.path())
+        })
+    };
+    let api = both();
+    let network = api
+        .runtime()
+        .create(
+            SandboxConfig::new("network")
+                .unwrap()
+                .named("lab")
+                .with_settings(data!({"cidr": "10.77.0.0/24"})),
+        )
+        .unwrap();
+    network.start().unwrap();
+    let server = api
+        .runtime()
+        .create(
+            SandboxConfig::new("server")
+                .unwrap()
+                .named("srv")
+                .using("network", "lab"),
+        )
+        .unwrap();
+    server.start().unwrap();
+    let act = |capability: &str, arguments| {
+        let outcome = server.act(capability, arguments).unwrap();
+        assert!(outcome.ok, "{capability}: {:?}", outcome.reason);
+    };
+    act(
+        "service.create",
+        data!({"definition": "dns", "name": "names"}),
+    );
+    act(
+        "service.call",
+        data!({"service": "names", "capability": "dns.record.add",
+               "arguments": {"name": "test.lab", "address": "10.77.0.50"}}),
+    );
+    act("service.start", data!({"service": "names"}));
+    let (network, server) = (network.id(), server.id());
+    drop(api);
+    // `0` sorts before `sbx-`: the Server's record is read first.
+    let state = room.join("state");
+    fs::rename(
+        state.join(format!("{server}.json")),
+        state.join(format!("0-{server}.json")),
+    )
+    .unwrap();
+
+    let api = both();
+    let answer = api
+        .runtime()
+        .get(&network)
+        .unwrap()
+        .act("dns.resolve", data!({"name": "test.lab"}))
+        .unwrap();
+    assert_eq!(answer.data["address"], "10.77.0.50", "{answer:?}");
 }
 
 #[test]

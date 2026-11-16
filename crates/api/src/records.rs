@@ -202,12 +202,34 @@ pub(crate) fn restore_all(runtime: &SandboxRuntime, state: &Path) {
             );
             continue;
         };
-        match runtime.restore(identity, config, hint, reason_from_value(raw.get("reason"))) {
+        let reason = reason_from_value(raw.get("reason"));
+        // Recorded by a BeatBox that called a guest gone while it was closed
+        // a failure, which left only reset, and reset wipes the disk. It is
+        // a machine at rest.
+        let hint = if hint == Lifecycle::Failed
+            && reason
+                .as_ref()
+                .is_some_and(|why| why.code == "host.guest_lost")
+        {
+            Lifecycle::Stopped
+        } else {
+            hint
+        };
+        match runtime.restore(identity, config, hint, reason) {
             Ok(_) | Err(EngineError::Refused(_)) => {}
             Err(error) => log::error!(
                 "BeatBox could not restore the sandbox recorded at {}: {error}",
                 path.display()
             ),
+        }
+    }
+    // Records come back in file-name order, which is random for ids: a
+    // Server restored before its network found no network, started nothing
+    // and kept saying its services ran. Looked at again now that every peer
+    // is back, it brings them up.
+    for sandbox in runtime.sandboxes() {
+        if !sandbox.config().uses.is_empty() {
+            let _ = sandbox.refresh();
         }
     }
 }

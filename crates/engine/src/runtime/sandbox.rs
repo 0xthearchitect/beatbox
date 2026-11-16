@@ -635,7 +635,12 @@ impl Core {
             self.say(event_for(Transition::Stop), why);
             return Ok(self.state());
         }
-        if observation.alive == Some(false) && allows(current, Transition::Fail) {
+        // At rest and already there (stopped, or never started): nothing to
+        // settle, and nothing broken.
+        if observation.alive == Some(false)
+            && !observation.halted
+            && allows(current, Transition::Fail)
+        {
             let type_name = self.type_name();
             let why = observation
                 .reason

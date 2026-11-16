@@ -171,7 +171,7 @@
   "beatbox.plain.why.shut_down": "Foi desligada por dentro. Liga-a outra vez quando quiseres.",
   "beatbox.plain.why.out_of_memory": "O computador ficou sem memória e desligou-a. Fecha outra coisa ou dá-lhe menos, e liga-a outra vez.",
   "beatbox.plain.why.not_enough_memory": "Quer {wanted} GB e só há {free} GB livres. Dá-lhe menos, ou fecha outra coisa primeiro.",
-  "beatbox.plain.why.guest_lost": "O BeatBox perdeu esta máquina enquanto estava fechado. Liga-a outra vez, ou deita-a fora.",
+  "beatbox.plain.why.guest_lost": "Parou enquanto o BeatBox estava fechado. Liga-a outra vez.",
   "beatbox.plain.why.program_refused": "A máquina não conseguiu correr “{command}”: {detail}",
   "beatbox.plain.why.tools_download_failed": "As guest tools não descarregaram. Confirma que tens internet e tenta outra vez.",
   "beatbox.plain.why.tools_wrong_file": "O que chegou não era o ficheiro certo, por isso foi deitado fora. Tenta mais tarde.",

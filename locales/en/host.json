@@ -8,7 +8,7 @@
   "beatbox.host.guest_shut_down": "The machine was shut down from inside.",
   "beatbox.host.guest_killed": "The machine was closed by force by this computer's system, almost always because memory ran out. Give it less memory or close other programs.",
   "beatbox.host.not_enough_memory": "It wants {wanted} GB and only {free} GB are free. Give it less, or close other programs.",
-  "beatbox.host.guest_lost": "BeatBox lost track of this machine while it was closed. It may still be running, or it may be gone.",
+  "beatbox.host.guest_lost": "The machine stopped while BeatBox was closed. Its disk is kept.",
   "beatbox.host.program_refused": "The machine could not run “{command}”: {detail}",
   "beatbox.host.fixed_setting": "{setting} is fixed once a host sandbox exists: its disk of its own is built on it.",
   "beatbox.screen.host.machine.title": "Machines",

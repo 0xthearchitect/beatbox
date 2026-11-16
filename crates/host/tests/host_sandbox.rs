@@ -1072,14 +1072,20 @@ mod real_guest_tests {
     }
 
     /// The OOM killer, or anything else with nobody there to see it happen:
-    /// a stale socket file cannot pretend anyone is listening on it.
+    /// a stale socket file cannot pretend anyone is listening on it. Its disk
+    /// is fine, so it is a machine at rest that starts again, with the files
+    /// it wrote still there; `failed` would leave only reset, which wipes it.
     #[test]
-    fn a_guest_that_died_while_nobody_was_watching_is_found_gone() {
+    fn a_guest_that_died_while_nobody_was_watching_starts_again_with_its_disk() {
         needs_qemu!();
         let _one = one_guest_at_a_time();
         let g = guest();
         g.sandbox.start().unwrap();
+        let disk = overlay(&g.sandbox);
+        let written = |path: &Path| std::fs::metadata(path).unwrap().modified().unwrap();
         kill(&g.sandbox);
+        // Read after the kill: nothing writes to it any more but a reset.
+        let before = written(&disk);
         let (next_run, _) = build();
         let lost = next_run
             .restore(
@@ -1089,12 +1095,38 @@ mod real_guest_tests {
                 None,
             )
             .unwrap();
-        assert_eq!(lost.lifecycle(), Lifecycle::Failed);
+        assert_eq!(lost.lifecycle(), Lifecycle::Stopped);
         assert_eq!(lost.state().reason.unwrap().code, "host.guest_lost");
-        // Put back as it was made, it is a machine at rest again, not one
-        // still being looked for through the dead guest's sockets.
-        assert_eq!(lost.reset().unwrap().lifecycle, Lifecycle::Created);
-        assert_ne!(lost.lifecycle(), Lifecycle::Failed);
+        assert_eq!(written(&disk), before, "the same disk, not a new one");
+        lost.start().unwrap();
+        assert_eq!(lost.lifecycle(), Lifecycle::Running);
+        lost.stop().unwrap();
+    }
+
+    /// What a BeatBox from before this wrote down for such a guest: failed,
+    /// its sockets still there. Brought back as stopped, the next look finds
+    /// nobody on them and must not fail it again.
+    #[test]
+    fn a_guest_recorded_lost_comes_back_at_rest() {
+        needs_qemu!();
+        let _one = one_guest_at_a_time();
+        let g = guest();
+        g.sandbox.start().unwrap();
+        kill(&g.sandbox);
+        let (next_run, _) = build();
+        let back = next_run
+            .restore(
+                g.sandbox.identity(),
+                g.sandbox.config(),
+                Lifecycle::Stopped,
+                Some(reason!("host.guest_lost")),
+            )
+            .unwrap();
+        back.refresh().unwrap();
+        assert_eq!(back.lifecycle(), Lifecycle::Stopped);
+        back.start().unwrap();
+        assert_eq!(back.lifecycle(), Lifecycle::Running);
+        back.stop().unwrap();
     }
 
     /// They live in the overlay, and so does the list of them.

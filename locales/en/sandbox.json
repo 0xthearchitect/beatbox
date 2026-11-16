@@ -171,7 +171,7 @@
   "beatbox.plain.why.shut_down": "It was shut down from inside. Start it again whenever you like.",
   "beatbox.plain.why.out_of_memory": "This computer ran out of memory and switched it off. Close something or give it less, then start it again.",
   "beatbox.plain.why.not_enough_memory": "It wants {wanted} GB and only {free} GB are free. Give it less, or close something first.",
-  "beatbox.plain.why.guest_lost": "BeatBox lost this machine while it was closed. Start it again, or throw it away.",
+  "beatbox.plain.why.guest_lost": "It stopped while BeatBox was closed. Start it again.",
   "beatbox.plain.why.program_refused": "The machine could not run “{command}”: {detail}",
   "beatbox.plain.why.tools_download_failed": "The guest tools did not download. Check you are online and try again.",
   "beatbox.plain.why.tools_wrong_file": "The download was not the right file, so it was thrown away. Try again later.",

@@ -8,7 +8,7 @@
   "beatbox.host.guest_shut_down": "A máquina foi desligada por dentro.",
   "beatbox.host.guest_killed": "A máquina foi fechada à força pelo sistema deste computador, quase sempre por falta de memória. Dá-lhe menos memória ou fecha outros programas.",
   "beatbox.host.not_enough_memory": "Quer {wanted} GB e só há {free} GB livres. Dá-lhe menos, ou fecha outros programas.",
-  "beatbox.host.guest_lost": "O BeatBox perdeu o rasto a esta máquina enquanto estava fechado. Pode ainda estar a correr, ou já ter desaparecido.",
+  "beatbox.host.guest_lost": "A máquina parou enquanto o BeatBox estava fechado. O disco fica guardado.",
   "beatbox.host.program_refused": "A máquina não conseguiu correr «{command}»: {detail}",
   "beatbox.host.fixed_setting": "{setting} fica fixo depois de a sandbox host existir: o disco próprio dela é construído a partir disso.",
   "beatbox.screen.host.machine.title": "Máquinas",

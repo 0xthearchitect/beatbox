@@ -20,14 +20,14 @@ use crate::runtime::resources::{NOTHING, Resources};
 /// guest is alive; one whose QEMU is gone isn't. `None` is "can't tell", and
 /// the runtime never acts on it, or quiet sandboxes would fail.
 ///
-/// `halted` qualifies a `false`: shut down from inside on purpose, so it goes
-/// to `stopped`, not `failed`. Someone choosing Shut down in Windows isn't a
-/// crash.
+/// `halted` qualifies a `false`: at rest, not broken, so it goes to
+/// `stopped`, never `failed`. Someone choosing Shut down in Windows isn't a
+/// crash, and neither is a guest whose disk survived a power cut.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Observation {
     /// Still there, gone, or cannot tell.
     pub alive: Option<bool>,
-    /// Gone on purpose, from inside.
+    /// Gone, but at rest: it starts again.
     pub halted: bool,
     /// What it is using.
     pub resources: Resources,

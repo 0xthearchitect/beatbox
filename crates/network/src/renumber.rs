@@ -266,6 +266,7 @@ impl Plan {
             })
             .collect();
         net.live.dns = names.into_iter().collect();
+        self.move_handed_out_dns(net, old_gateway, gateway);
         for rule in &mut net.live.rules {
             for end in [&mut rule.source, &mut rule.destination] {
                 if let Some(moved) = self.spec(end) {
@@ -296,6 +297,7 @@ impl Plan {
                 *address = moved;
             }
         }
+        self.move_handed_out_dns(net, old_gateway, gateway);
         for rule in &mut net.live.rules {
             for end in [&mut rule.source, &mut rule.destination] {
                 if let Some(moved) = self.spec(end) {
@@ -304,6 +306,21 @@ impl Plan {
             }
         }
         net.forget_conversations();
+    }
+
+    /// The DNS each router's DHCP hands out, on any VLAN, when it was in the
+    /// moved range: otherwise machines renew into a DNS that is not there.
+    fn move_handed_out_dns(&self, net: &mut Net, old_gateway: Ipv4Addr, gateway: Ipv4Addr) {
+        let handed_out = net
+            .routers
+            .values_mut()
+            .flat_map(|conf| conf.dhcp.values_mut())
+            .filter_map(|dhcp| dhcp.dns.as_mut());
+        for address in handed_out {
+            if let Some(moved) = self.address(*address, old_gateway, gateway) {
+                *address = moved;
+            }
+        }
     }
 
     /// The settings a network is made from, moved: its range, and the names
@@ -549,6 +566,26 @@ mod tests {
         assert_eq!(net.live.dns["portal.local"], ip(10, 60, 0, 11));
         assert_eq!(net.live.rules[0].source, "10.60.0.0/24");
         assert_eq!(net.baseline.network, ip(10, 60, 0, 0));
+    }
+
+    #[test]
+    fn the_dns_dhcp_hands_out_moves_with_the_range() {
+        let (old, nodes) = lab(Vec::new());
+        let plan = plan(&old, &nodes, (ip(10, 60, 0, 0), 24)).unwrap();
+        let mut net = Net::new(old);
+        net.nodes = nodes;
+        let handing = |dns| crate::switch::Dhcp {
+            dns: Some(dns),
+            ..Default::default()
+        };
+        let mut conf = crate::switch::RouterConf::default();
+        conf.dhcp.insert(1, handing(ip(10, 50, 20, 11)));
+        conf.dhcp.insert(20, handing(ip(192, 168, 0, 9)));
+        net.routers.insert("router".into(), conf);
+        plan.apply(&mut net);
+        let dhcp = &net.routers["router"].dhcp;
+        assert_eq!(dhcp[&1].dns, Some(ip(10, 60, 0, 11)), "follows its machine");
+        assert_eq!(dhcp[&20].dns, Some(ip(192, 168, 0, 9)), "not in the range");
     }
 
     #[test]
