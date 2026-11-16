@@ -23,7 +23,8 @@ pub const LINUX_HTTP: &str = r#"s=$(date +%s%N)
 l=$(timeout 5 bash -c 'exec 3<>"/dev/tcp/$0/$1" || exit 1
 printf "GET / HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n" "$0" >&3
 IFS= read -r l <&3
-printf "%s" "$l"' "$1" "$2" 2>/dev/null)
+printf "%s" "$l"
+cat <&3 >/dev/null' "$1" "$2" 2>/dev/null)
 echo "$(( ($(date +%s%N) - s) / 1000000 )) ${l%$'\r'}""#;
 
 /// `<ms> <rcode> [a.b.c.d]`, or `<ms> timeout`. One A question, built

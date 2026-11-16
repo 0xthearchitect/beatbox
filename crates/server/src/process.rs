@@ -75,6 +75,9 @@ IFS= read -r status <&3
 status=${status%$'\r'}
 code=${status#* }
 code=${code%% *}
+# Read the rest before closing: closing on an unread answer resets the
+# connection, and the site writes that error into the log people read.
+cat <&3 >/dev/null
 case "$code" in [23][0-9][0-9]) exit 0 ;; esac
 exit 1"#;
 

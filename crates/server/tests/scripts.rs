@@ -85,6 +85,8 @@ fn start_check_and_stop_a_real_web_server() {
     let room = std::env::temp_dir().join(format!("bbx-scripts-{}", std::process::id()));
     std::fs::create_dir_all(room.join("www")).unwrap();
     std::fs::write(room.join("www/index.html"), "<h1>hello</h1>").unwrap();
+    // Big enough that the site is still sending when the check has its answer.
+    std::fs::write(room.join("www/big.html"), "x".repeat(1 << 20)).unwrap();
     let port = TcpListener::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
@@ -127,6 +129,12 @@ fn start_check_and_stop_a_real_web_server() {
         !check(HTTP_CHECK, &[&port, "/nowhere"]),
         "a 404 is not well"
     );
+    for _ in 0..5 {
+        assert!(
+            check(HTTP_CHECK, &[&port, "/big.html"]),
+            "a big page is well"
+        );
+    }
 
     assert_eq!(sh(STOP, &[&pid]).0, 0);
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -139,6 +147,10 @@ fn start_check_and_stop_a_real_web_server() {
     assert!(
         log.contains("GET / "),
         "its output went to its log: {log:?}"
+    );
+    assert!(
+        !log.contains("Traceback"),
+        "a check cut the site off mid-answer: {log}"
     );
     // Stopping what is already gone is not an error.
     assert_eq!(sh(STOP, &[&pid]).0, 0);
