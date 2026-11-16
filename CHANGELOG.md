@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.2 (2026-11-16)
+
+Fixes.
+
+### Machines
+
+- A machine's pages no longer go blank while a long command runs inside
+  it. They show what is known and catch up when the command ends.
+
+### Servers
+
+- A working website no longer shows a "Connection reset" error in its live
+  log every few seconds.
+- The server page shows times as `17:14`, like the machine pages, instead
+  of `5:14:11 PM`.
+
 ## 0.1.1 (2026-11-13)
 
 Fixes.
