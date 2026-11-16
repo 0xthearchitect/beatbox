@@ -109,7 +109,7 @@ impl Api {
     /// so the page decides when it's worth it.
     pub(crate) fn sandbox_refresh(&self, payload: &Map<String, Value>) -> Result<Value, ApiFault> {
         let sandbox = self.sandbox(&payload["id"])?;
-        match sandbox.refresh() {
+        match sandbox.refresh_unless_busy() {
             Ok(_) => {}
             Err(EngineError::Provider(error)) => {
                 return Err(ApiFault::because(

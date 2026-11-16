@@ -2,8 +2,8 @@
 //! `Api::dispatch`, and promises:
 //!
 //! 1. reading never waits;
-//! 2. two operations on one sandbox never overlap, and two refreshes queued
-//!    behind the same save point are answered by one observation, not two;
+//! 2. two operations on one sandbox never overlap, and a refresh asked
+//!    while one runs answers at once with what is known, asking nothing;
 //! 3. two sandboxes never wait for each other;
 //! 4. every subscriber sees events in `sequence` order.
 //!
@@ -183,34 +183,30 @@ fn two_operations_on_one_sandbox_never_overlap() {
 }
 
 #[test]
-fn two_refreshes_behind_one_save_point_are_one_observation() {
+fn a_refresh_during_a_save_point_answers_at_once_with_what_is_known() {
     let room = Room::new("lanes");
     let api = api(&room);
-    let id = running(&api, "slow", "coalesced");
-    let seen = counters("coalesced");
+    let id = running(&api, "slow", "busy");
+    let seen = counters("busy");
     let before = seen.observed.load(Ordering::SeqCst);
 
     let saving = hold(&api, &id, "snapshot.create", 800);
-    let refreshes: Vec<_> = (0..2)
-        .map(|_| {
-            let api = Arc::clone(&api);
-            let payload = json!({"id": id});
-            thread::spawn(move || data(api.dispatch("sandbox.refresh", &payload)))
-        })
-        .collect();
-    saving.join().unwrap();
-    for refresh in refreshes {
-        assert_eq!(refresh.join().unwrap()["state"]["lifecycle"], "running");
-    }
+    let took = timed(|| {
+        let state = data(api.dispatch("sandbox.refresh", &json!({"id": id})));
+        assert_eq!(state["state"]["lifecycle"], "running");
+    });
+    assert!(took < Duration::from_millis(300), "it waited: {took:?}");
     assert_eq!(
         seen.observed.load(Ordering::SeqCst),
-        before + 1,
-        "the guest was asked twice"
+        before,
+        "the guest was asked while busy"
     );
+    saving.join().unwrap();
 
-    // And one asked afterwards is not answered from the past.
+    // Once the lane is free, a refresh asks again.
+    let after = seen.observed.load(Ordering::SeqCst);
     data(api.dispatch("sandbox.refresh", &json!({"id": id})));
-    assert_eq!(seen.observed.load(Ordering::SeqCst), before + 2);
+    assert_eq!(seen.observed.load(Ordering::SeqCst), after + 1);
 }
 
 #[test]

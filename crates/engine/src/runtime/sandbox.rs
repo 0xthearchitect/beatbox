@@ -19,7 +19,7 @@ use std::any::Any;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
 use beatbox_reasons::{Reason, reason};
 use serde_json::{Value, json};
@@ -355,7 +355,30 @@ impl Sandbox {
     /// before isn't new enough.
     pub fn refresh(&self) -> Result<SandboxState, EngineError> {
         let asked = self.looks.begun.load(Ordering::SeqCst);
-        let mut core = self.lane();
+        let core = self.lane();
+        self.look(asked, core)
+    }
+
+    /// [`Self::refresh`], unless something holds the lane: then the last
+    /// thing known, at once. For a page, which polls again anyway, and
+    /// should not stay blank while a long command runs inside the guest.
+    pub fn refresh_unless_busy(&self) -> Result<SandboxState, EngineError> {
+        let asked = self.looks.begun.load(Ordering::SeqCst);
+        let core = match self.core.try_lock() {
+            Ok(core) => core,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => return Ok(self.state()),
+        };
+        self.look(asked, core)
+    }
+
+    /// Observe under the lane, or take an observation that began after
+    /// `asked` instead of asking the guest twice.
+    fn look(
+        &self,
+        asked: u64,
+        mut core: std::sync::MutexGuard<'_, Core>,
+    ) -> Result<SandboxState, EngineError> {
         if self.looks.answered.load(Ordering::SeqCst) > asked {
             return Ok(core.state());
         }

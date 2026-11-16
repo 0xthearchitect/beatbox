@@ -858,3 +858,38 @@ mod reconfigure_tests {
         ));
     }
 }
+
+mod busy_tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    /// A page asks while a long command holds the lane: it gets what is
+    /// known at once, and a real look once the lane is free.
+    #[test]
+    fn a_refresh_for_a_page_does_not_wait_behind_a_long_action() {
+        let (runtime, _log) = mock();
+        let sandbox = runtime.create(config("mock")).unwrap();
+        sandbox.start().unwrap();
+        let (held, wait_for_held) = mpsc::channel();
+        let (release, released) = mpsc::channel::<()>();
+        let busy = sandbox.clone();
+        let long = thread::spawn(move || {
+            busy.provider(|_: &mut beatbox_engine::runtime::providers::MockSandbox| {
+                held.send(()).unwrap();
+                released.recv().unwrap();
+            })
+        });
+        wait_for_held.recv().unwrap();
+
+        let asked = Instant::now();
+        let known = sandbox.refresh_unless_busy().unwrap();
+        assert!(asked.elapsed() < Duration::from_secs(1));
+        assert_eq!(known.lifecycle, sandbox.state().lifecycle);
+
+        release.send(()).unwrap();
+        long.join().unwrap();
+        assert!(sandbox.refresh_unless_busy().is_ok());
+    }
+}

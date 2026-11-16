@@ -7,6 +7,7 @@ import { fault, say, t, runtimeText } from '../i18n';
 import { navigate, useRouteParams } from '../router';
 import { Asks, FromElsewhere } from './ServerMore';
 import { sampleAddress } from '../network';
+import { clock } from './MachineParts';
 
 /**
  * The Server screen: a card per service, in plain words. Engine names only
@@ -405,7 +406,7 @@ function Helpers({ srv }: { srv: Server }) {
           {uses.network ? <span className={`bb-srv-blkstate is-${toneOf(networkState)}`} aria-label={networkSaid} /> : null}
         </span>
         <span className="bb-srv-stripwhen">
-          {check ? <small>{t('beatbox.srv.helpers.checked', { time: new Date(check.at).toLocaleTimeString() })}</small> : null}
+          {check ? <small>{t('beatbox.srv.helpers.checked', { time: clock(new Date(check.at)) })}</small> : null}
           <button type="button" className="bb-srv-copy" aria-label={t('beatbox.srv.helpers.check_again')} title={t('beatbox.srv.helpers.check_again')}
                   onClick={() => void recheck()}><Icon name="refresh" size="sm" /></button>
         </span>
@@ -442,7 +443,7 @@ function Lately({ srv }: { srv: Server }) {
       const words = mine.flatMap((event) => {
         const data = bag(event.data);
         const service = text(data.service);
-        const at = new Date(event.at).toLocaleTimeString();
+        const at = clock(new Date(event.at));
         if (event.name === 'service.health.changed') {
           if (data.to === 'unknown') return [];
           return [{ at, tone: data.to === 'healthy' ? 'mint' : 'amber', text: runtimeText(`beatbox.srv.lately.${data.to === 'healthy' ? 'answers' : 'silent'}`, { service }) }];
@@ -696,7 +697,7 @@ function Side({ srv, service }: { srv: Server; service: Service }) {
                     <dd>{sharedName(value) ? t('beatbox.srv.shared.uses', { name: sharedName(value) }) : text(value)}</dd></span>
                 ))}
                 {capabilities.length ? <><dt>{t('beatbox.srv.fact.can')}</dt><dd>{[...new Set(capabilities.map(capWord))].join(' · ')}</dd></> : null}
-                {service.healthCheckedAt ? <><dt>{t('beatbox.srv.side.checked')}</dt><dd>{new Date(service.healthCheckedAt).toLocaleTimeString()}</dd></> : null}
+                {service.healthCheckedAt ? <><dt>{t('beatbox.srv.side.checked')}</dt><dd>{clock(new Date(service.healthCheckedAt))}</dd></> : null}
               </dl>
             </div>
           </details>
