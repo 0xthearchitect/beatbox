@@ -524,6 +524,9 @@ pub struct Net {
     pub lights: BTreeMap<String, crate::light::LightConf>,
     /// What each VLAN is called, by number: a label for people, nothing else.
     pub vlan_names: BTreeMap<u16, String>,
+    /// A practice lab's tasks, as its file gave them. The engine never reads
+    /// it; it only keeps it with the network for the screens.
+    pub practice: Option<serde_json::Value>,
     /// Machines given another address that have not taken it yet, and the
     /// address they still speak as: they may use it for ARP, and only to
     /// reach the router, until they renew (`readdress`, `dhcp`).
@@ -780,6 +783,7 @@ impl Net {
             routers: BTreeMap::new(),
             lights: BTreeMap::new(),
             vlan_names: BTreeMap::new(),
+            practice: None,
             moved_from: BTreeMap::new(),
             link_traffic: BTreeMap::new(),
             node_traffic: BTreeMap::new(),
@@ -809,6 +813,7 @@ impl Net {
         let routers = std::mem::take(&mut self.routers);
         let lights = std::mem::take(&mut self.lights);
         let vlan_names = std::mem::take(&mut self.vlan_names);
+        let practice = self.practice.take();
         let link_traffic = std::mem::take(&mut self.link_traffic);
         let node_traffic = std::mem::take(&mut self.node_traffic);
         let reserved = std::mem::take(&mut self.reserved);
@@ -819,6 +824,7 @@ impl Net {
         self.routers = routers;
         self.lights = lights;
         self.vlan_names = vlan_names;
+        self.practice = practice;
         self.link_traffic = link_traffic;
         self.node_traffic = node_traffic;
     }

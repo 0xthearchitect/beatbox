@@ -47,6 +47,9 @@ did to it.
 
 Save a network to a file, or start a new one from a template.
 
+New to this? Start with a practice lab. Something in it is broken on
+purpose, and Check tells you when you have fixed it.
+
 https://github.com/user-attachments/assets/f1af788b-6c07-4ee9-a1d7-952d1a1efaf7
 
 ## Servers

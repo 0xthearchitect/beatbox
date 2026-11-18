@@ -9,7 +9,7 @@ import { service, tell, type RawFlow, type Service, type Talk } from '../flows';
 import {
   EDITOR, OUT_THERE, PRESETS, SERVICES, decide, editorPicture, feel, hits, modeOf, presetOf, reach,
   fits, servedBy, suggestRange, type RouterInfo, vlanOf, vlansIn, type Cable, type RouterNet, type Here, type PortMode, type Rule, type Topo,
-  type Dhcp, type DnsRecord, askName, cutBy,
+  type Dhcp, type DnsRecord, askName, cutBy, missed, type Goal,
 } from '../network';
 import { href, navigate, useRouteParams } from '../router';
 import { labInEnglish } from '../network';
@@ -18,6 +18,9 @@ import labHome from '../labs/home.json';
 import labSites from '../labs/sites.json';
 import labSwitches from '../labs/switches.json';
 import labVlans from '../labs/vlans.json';
+import practiceFiles from '../labs/practice/files.json';
+import practiceGuests from '../labs/practice/guests.json';
+import practiceName from '../labs/practice/name.json';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
 } from '@/components/animate-ui/components/radix/dropdown-menu';
@@ -307,9 +310,15 @@ function Page({ page, children, net, title, lede, info, actions }: {
   );
 }
 
-/** Starting points: empty (router only), a bundled lab, or a file. */
+/** Starting points: empty (router only), a bundled lab, a practice lab, or a file. */
 const LABS = { switches: labSwitches, home: labHome, vlans: labVlans, sites: labSites, dmz: labDmz } as Record<string, NetFile>;
 const STARTS = ['empty', ...Object.keys(LABS)];
+/** Labs with a problem planted and the goals that say it is fixed. In this order, for "Next lab". */
+const PRACTICE = { files: practiceFiles, guests: practiceGuests, name: practiceName } as Record<string, NetFile>;
+/** The template each one grew from, for its picture. */
+const PRACTICE_SKETCH: Record<string, string> = { files: 'vlans', guests: 'home', name: 'vlans' };
+/** The page where each one is fixed. */
+const PRACTICE_PLACE: Record<string, 'firewall' | 'names'> = { files: 'firewall', guests: 'firewall', name: 'names' };
 
 /** Labs ship with Portuguese names: a page in English gets them in English. */
 function labIn(lab: NetFile): NetFile {
@@ -323,6 +332,7 @@ interface NetFile {
   nodes: { node: string; light?: unknown }[];
   topology: { devices: { kind: string }[] };
   routers: { forwards: unknown[] }[];
+  practice?: { lab: string; goals: Goal[] };
 }
 
 /** "1 router, 3 switches, 6 light machines, 9 rules and 1 forward". Routers counted beyond the main one. */
@@ -418,19 +428,24 @@ function LabSketch({ kind }: { kind: string }) {
 }
 
 function NewNetwork() {
-  const [name, setName] = useState('lab');
-  const [cidr, setCidr] = useState('10.10.10.0/24');
-  const [start, setStart] = useState('empty');
+  // "Next lab" lands here with the next practice lab picked.
+  const asked = useRouteParams().get('practice') ?? '';
+  const [name, setName] = useState(PRACTICE[asked] ? runtimeText(`beatbox.net.practice.${asked}.network`) : 'lab');
+  const [cidr, setCidr] = useState(PRACTICE[asked]?.cidr ?? '10.10.10.0/24');
+  const [start, setStart] = useState(PRACTICE[asked] ? asked : 'empty');
   const [file, setFile] = useState<{ name: string; state: NetFile } | null>(null);
   const [busy, setBusy] = useState(false);
   const [told, setTold] = useState('');
   const [picking, setPicking] = useState(false);
-  const state = start === 'file' ? file?.state : LABS[start] && labIn(LABS[start]);
+  const lab = LABS[start] ?? PRACTICE[start];
+  const state = start === 'file' ? file?.state : lab && labIn(lab);
 
   function choose(each: string) {
     setStart(each);
     // Labs and files bring a range; prefill it, still editable.
-    if (LABS[each]) setCidr(LABS[each].cidr);
+    const picked = LABS[each] ?? PRACTICE[each];
+    if (picked) setCidr(picked.cidr);
+    if (PRACTICE[each]) setName(runtimeText(`beatbox.net.practice.${each}.network`));
   }
 
   /** Read the picked file through the window. */
@@ -480,6 +495,8 @@ function NewNetwork() {
           throw error;
         }
       }
+      // A practice lab keeps its untouched start, for "Try again".
+      if (state?.practice) await act(made.id, 'point.save', { name: t('beatbox.net.practice.start_point') }).catch(() => undefined);
       remember('network', made.id);
       navigate('network/overview');
     } catch (error) {
@@ -502,7 +519,19 @@ function NewNetwork() {
         </label>
       </div>
       <div className="bb-field" style={{ marginTop: 24 }}>
-        <span>{t('beatbox.net.new.start')}</span>
+        <span>{t('beatbox.net.lab.practise')}</span>
+        <div className="bb-lab-grid">
+          {Object.keys(PRACTICE).map((each) => (
+            <button key={each} type="button" className={`bb-lab${start === each ? ' on' : ''}`} onClick={() => choose(each)}>
+              <LabSketch kind={PRACTICE_SKETCH[each]!} />
+              <b>{runtimeText(`beatbox.net.practice.${each}`)}</b>
+              <small>{runtimeText(`beatbox.net.practice.${each}.what`)}</small>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="bb-field" style={{ marginTop: 24 }}>
+        <span>{t('beatbox.net.lab.or_start')}</span>
         <div className="bb-lab-grid">
           {STARTS.map((each) => (
             <button key={each} type="button" className={`bb-lab${start === each ? ' on' : ''}`} onClick={() => choose(each)}>
@@ -2207,6 +2236,7 @@ export function NetworkOverview() {
           </div> : undefined}>
       {network ? (
         <>
+          {PRACTICE[String(bag(net.facts.practice).lab)] ? <Practice key={network.id} net={net} /> : null}
           <Counted counters={bag(net.facts.counters)} since={since} />
           <div className="bb-net-editor">
             <Palette net={net} machines={machines} reload={reload} selected={selected} onSelect={setSelected} />
@@ -2241,7 +2271,7 @@ export function NetworkOverview() {
                 <span><span className="bb-wf-label">{t('beatbox.net.cable.title')}</span><span>{cableLine(cableOfFacts(net.facts))}</span></span>
                 <Icon name="arrow" size="sm" />
               </a>
-              <Keep key={network.id} net={net} />
+              <Keep key={network.id} net={net} machines={machines} />
             </aside>
           </div>
         </>
@@ -2250,12 +2280,17 @@ export function NetworkOverview() {
   );
 }
 
-interface Point { id: string; name: string; at_ms: number }
+/** A machine's save point taken with a network point (`point.save` keeps it as given). */
+interface PointMachine { id: string; name: string; label: string }
+interface Point { id: string; name: string; at_ms: number; machines: PointMachine[] }
+/** One line of saving or going back: the network or a machine, and how it went. */
+interface Step { label: string; id?: string; state: 'wait' | 'doing' | 'done' | 'no'; why?: string }
 
-/** Save the network: to a file, as a copy, or as a save point. */
-function Keep({ net }: { net: Net }) {
+/** Save the network: to a file, as a copy, or as a save point that takes its running machines along. */
+function Keep({ net, machines }: { net: Net; machines: SandboxView[] }) {
   const network = net.network!;
   const can = network.capabilities.includes('point.save');
+  const cabled = machines.filter((machine) => cableOf(machine)?.sandbox === network.id);
   const [points, setPoints] = useState<Point[]>([]);
   const [naming, setNaming] = useState<'' | 'file' | 'copy' | 'point'>('');
   const [text, setText] = useState('');
@@ -2265,9 +2300,15 @@ function Keep({ net }: { net: Net }) {
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState('');
   const [told, setTold] = useState('');
+  // Machines left out of the next point; running ones go in unless unticked.
+  const [left, setLeft] = useState<string[]>([]);
+  const [steps, setSteps] = useState<{ title: string; list: Step[]; done: boolean } | null>(null);
   const list = useCallback(async () => {
     const answer = await act(network.id, 'point.list');
-    setPoints(rows(answer.points).map((p) => ({ id: String(p.id), name: String(p.name ?? ''), at_ms: Number(p.at_ms) })));
+    setPoints(rows(answer.points).map((p) => ({
+      id: String(p.id), name: String(p.name ?? ''), at_ms: Number(p.at_ms),
+      machines: rows(p.machines).map((m) => ({ id: String(m.id), name: String(m.name), label: String(m.label ?? m.name) })),
+    })));
   }, [network.id]);
   useEffect(() => { if (can) void list().catch(() => undefined); }, [can, list]);
   // Default to Downloads.
@@ -2304,21 +2345,84 @@ function Keep({ net }: { net: Net }) {
     setNaming('');
     remember('network', made.id);
   });
-  const mark = () => run(async () => {
-    await act(network.id, 'point.save', { name: text.trim() });
-    setNaming('');
-    await list();
-  });
-  const back = (id: string) => run(async () => {
-    setAsking('');
-    await act(network.id, 'point.restore', { id });
-    await net.reload();
-  });
-  const drop = (id: string) => run(async () => {
-    await act(network.id, 'point.remove', { id });
-    await list();
-  });
   const when = (ms: number) => new Date(ms).toLocaleString(speaking(), { dateStyle: 'short', timeStyle: 'short', hour12: false });
+  const titleOf = (point: Point) => point.name || when(point.at_ms);
+  const running = (machine: SandboxView) => machine.state.lifecycle === 'running';
+  const taking = cabled.filter((machine) => running(machine) && !left.includes(machine.id));
+
+  /** Walk `list`, one at a time, showing each line as it goes; `true` if all went. */
+  async function walk(title: string, list: Step[], each: (step: Step, i: number) => Promise<void>) {
+    const now = [...list];
+    const show = (done = false) => setSteps({ title, list: [...now], done });
+    for (const [i, step] of now.entries()) {
+      if (step.state !== 'wait') continue;
+      now[i] = { ...step, state: 'doing' };
+      show();
+      try {
+        await each(step, i);
+        now[i] = { ...step, state: 'done' };
+      } catch (error) {
+        now[i] = { ...step, state: 'no', why: fault(error) };
+      }
+    }
+    show(true);
+    return now.every((step) => step.state === 'done');
+  }
+
+  const mark = () => run(async () => {
+    const name = text.trim();
+    // A machine save point cannot hold quotes or backslashes.
+    const label = `${network.name} · ${name || when(Date.now())}`.replace(/["'\\]/g, '');
+    const taken: PointMachine[] = [];
+    const all = await walk(t('beatbox.net.keep.saving', { name: name || t('beatbox.net.keep.point') }),
+      [...taking.map((machine): Step => ({ label: machine.name, id: machine.id, state: 'wait' })),
+        { label: t('beatbox.net.keep.the_network'), state: 'wait' }],
+      async (step) => {
+        if (!step.id) {
+          await act(network.id, 'point.save', { name, machines: taken });
+          return;
+        }
+        const owned = bag(machines.find((machine) => machine.id === step.id)?.state.facts).snapshots;
+        const have = Array.isArray(owned) ? owned.map(String) : [];
+        let snapshot = label;
+        for (let n = 2; have.includes(snapshot); n++) snapshot = `${label} (${n})`;
+        await act(step.id, 'snapshot.create', { name: snapshot });
+        taken.push({ id: step.id, name: snapshot, label: step.label });
+      });
+    setNaming('');
+    setLeft([]);
+    if (all) setSteps(null);
+    await list();
+  });
+
+  const back = (point: Point) => run(async () => {
+    setAsking('');
+    await walk(t('beatbox.net.keep.going_back', { name: titleOf(point) }),
+      [{ label: t('beatbox.net.keep.the_network'), state: 'wait' },
+        ...point.machines.map((saved): Step => {
+          const machine = machines.find((each) => each.id === saved.id);
+          if (!machine) return { label: saved.label, state: 'no', why: t('beatbox.net.keep.gone') };
+          if (!running(machine)) return { label: machine.name, id: machine.id, state: 'no', why: t('beatbox.net.keep.off_now') };
+          return { label: machine.name, id: machine.id, state: 'wait' };
+        })],
+      async (step, i) => {
+        if (i === 0) {
+          await act(network.id, 'point.restore', { id: point.id });
+          await net.reload();
+          return;
+        }
+        await act(step.id!, 'snapshot.restore', { name: point.machines[i - 1]!.name });
+      });
+  });
+
+  // Their machine save points go too: each one holds a whole memory on disk.
+  // ponytail: a machine that is off cannot drop one, so it stays on that
+  // machine's page; delete it there, or drop it when the machine next starts.
+  const drop = (point: Point) => run(async () => {
+    for (const saved of point.machines) await act(saved.id, 'snapshot.delete', { name: saved.name }).catch(() => undefined);
+    await act(network.id, 'point.remove', { id: point.id });
+    await list();
+  });
   const ask = (what: 'file' | 'copy' | 'point') => {
     setNaming(naming === what ? '' : what);
     setText(what === 'file' ? network.name : what === 'copy' ? `${network.name}-2` : '');
@@ -2338,6 +2442,9 @@ function Keep({ net }: { net: Net }) {
       {extra}
     </form>
   );
+  const gb = (machine: SandboxView) => `${Math.round(Number(bag(machine.config.resources).memory ?? 0) / 102.4) / 10} GB`;
+  const dot = (state: Step['state']) => (state === 'done' ? <Mark ok />
+    : state === 'no' ? <Mark ok={false} /> : <span className={`bb-keep-dot${state === 'doing' ? ' on' : ''}`} />);
 
   if (!can) {
     return (
@@ -2362,27 +2469,158 @@ function Keep({ net }: { net: Net }) {
       {row('copy', 'copy', () => ask('copy'))}
       {naming === 'copy' ? form(() => void copy(), t('beatbox.net.keep.copy_do'), '', true) : null}
       {row('flag', 'point', () => ask('point'))}
-      {naming === 'point' ? form(() => void mark(), t('beatbox.net.keep.point_do'), t('beatbox.net.keep.point_name'), false) : null}
+      {naming === 'point' ? form(() => void mark(), t('beatbox.net.keep.point_do'), t('beatbox.net.keep.point_name'), false, cabled.length ? (
+        <div className="bb-keep-machines">
+          <div className="bb-wf-label">{t('beatbox.net.keep.machines_too')}</div>
+          {cabled.map((machine) => (
+            <label key={machine.id} className={`bb-keep-machine${running(machine) ? '' : ' off'}`}>
+              <input type="checkbox" disabled={!running(machine) || busy} checked={running(machine) && !left.includes(machine.id)}
+                     onChange={(e) => setLeft(e.target.checked ? left.filter((id) => id !== machine.id) : [...left, machine.id])} />
+              <span>{machine.name}</span>
+              <small className={running(machine) ? 'bb-mono' : ''}>{running(machine) ? gb(machine) : t('beatbox.net.keep.off')}</small>
+            </label>
+          ))}
+        </div>
+      ) : undefined) : null}
       {said ? <p className="bb-net-say bb-keep-said">{said}</p> : null}
       {told ? <p className="bb-sbx-no" style={{ fontSize: 12 }}>{told}</p> : null}
+      {steps ? (
+        <div className="bb-keep-steps">
+          <b>{steps.title}</b>
+          {steps.list.map((step, i) => (
+            <div key={i} className="bb-keep-step">
+              {dot(step.state)}
+              <span className="bb-keep-what">{step.label}{step.why ? <small>{step.why}</small> : null}</span>
+              {step.state === 'no' && step.id ? (
+                <Button size="sm" variant="ghost" onClick={() => { remember('host', step.id!); navigate('host/machine'); }}>
+                  {t('beatbox.net.keep.open_it')}</Button>
+              ) : null}
+            </div>
+          ))}
+          {steps.done ? <Button size="sm" variant="ghost" onClick={() => setSteps(null)}>{t('beatbox.net.keep.done')}</Button> : null}
+        </div>
+      ) : null}
       {points.length ? (
         <div className="bb-keep-points">
           <div className="bb-wf-label">{t('beatbox.net.keep.points')}</div>
           {points.map((point) => (
-            <div key={point.id} className="bb-keep-point">
-              <span><b>{point.name || when(point.at_ms)}</b>{point.name ? <small>{when(point.at_ms)}</small> : null}</span>
+            <div key={point.id}>
+              <div className="bb-keep-point">
+                <span><b>{titleOf(point)}</b><small>{point.name ? `${when(point.at_ms)} · ` : ''}{point.machines.length
+                  ? t('beatbox.net.keep.with', { names: point.machines.map((m) => m.label).join(', ') })
+                  : t('beatbox.net.keep.only_network')}</small></span>
+                {asking === point.id ? null : (
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => setAsking(point.id)}>{t('beatbox.net.keep.back')}</Button>
+                )}
+                <Button size="sm" variant="ghost" icon="trash" title={t('beatbox.net.keep.forget')}
+                        disabled={busy} onClick={() => void drop(point)} />
+              </div>
               {asking === point.id ? (
-                <Button size="sm" variant="primary" disabled={busy} onClick={() => void back(point.id)}>{t('beatbox.net.keep.back_sure')}</Button>
-              ) : (
-                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setAsking(point.id)}>{t('beatbox.net.keep.back')}</Button>
-              )}
-              <Button size="sm" variant="ghost" icon="trash" title={t('beatbox.net.keep.forget')}
-                      disabled={busy} onClick={() => void drop(point.id)} />
+                <div className="bb-keep-ask">
+                  <b>{t('beatbox.net.keep.ask', { name: titleOf(point) })}</b>
+                  <span className="bb-keep-goes"><Icon name="network" size="sm" />{t('beatbox.net.keep.the_network')}</span>
+                  {point.machines.map((saved) => {
+                    const machine = machines.find((each) => each.id === saved.id);
+                    return machine && running(machine)
+                      ? <span key={saved.id} className="bb-keep-goes"><Icon name="box" size="sm" />{machine.name}</span>
+                      : <span key={saved.id} className="bb-keep-goes stays"><Icon name="box" size="sm" />
+                        {t(machine ? 'beatbox.net.keep.is_off' : 'beatbox.net.keep.gone_named', { name: machine?.name ?? saved.label })}</span>;
+                  })}
+                  {cabled.filter((machine) => !point.machines.some((saved) => saved.id === machine.id)).map((machine) => (
+                    <span key={machine.id} className="bb-keep-goes stays"><Icon name="box" size="sm" />{t('beatbox.net.keep.stays', { name: machine.name })}</span>
+                  ))}
+                  <div className="bb-keep-askacts">
+                    <Button size="sm" variant="primary" disabled={busy} onClick={() => void back(point)}>{t('beatbox.net.keep.back_sure')}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setAsking('')}>{t('beatbox.net.keep.cancel')}</Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ))}
-          <p className="bb-net-say">{t('beatbox.net.keep.vms_stay')}</p>
         </div>
       ) : null}
+    </Card>
+  );
+}
+
+/** A practice lab's task: what to fix, a hint, and a check against its goals. */
+function Practice({ net }: { net: Net }) {
+  const network = net.network!;
+  const practice = bag(net.facts.practice);
+  const lab = String(practice.lab);
+  const goals = rows(practice.goals) as unknown as Goal[];
+  const [hint, setHint] = useState(false);
+  const [checked, setChecked] = useState<{ at: Date; miss: ReturnType<typeof missed> } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [told, setTold] = useState('');
+  const labs = Object.keys(PRACTICE);
+  const next = labs[labs.indexOf(lab) + 1];
+
+  function check() {
+    const dns = Object.fromEntries(Object.entries(bag(net.facts.dns)).map(([name, address]) => [name, String(address)]));
+    setChecked({ at: new Date(), miss: missed(goals, net.rules, net.defaultAllow, net.here, net.names, { dns, records: net.records, domain: net.domain }) });
+  }
+  // The start point is the first one the lab made; going back to it is the whole retry.
+  async function again() {
+    setBusy(true);
+    setTold('');
+    try {
+      const points = rows((await act(network.id, 'point.list')).points).sort((a, b) => Number(a.at_ms) - Number(b.at_ms));
+      if (points[0]) {
+        await act(network.id, 'point.restore', { id: String(points[0].id) });
+        await net.reload();
+      }
+      setChecked(null);
+    } catch (error) {
+      setTold(fault(error));
+    }
+    setBusy(false);
+  }
+
+  const miss = checked?.miss;
+  const end = (node: string) => (node === 'internet' ? t('beatbox.net.end.internet') : net.label(node));
+  const what = (key: string) => {
+    const known = SERVICES.find((each) => each.key === key);
+    return known ? named(service(known.protocol, known.port)) : key;
+  };
+  const solved = checked && !miss;
+  return (
+    <Card tone={solved ? 'mint' : undefined} style={{ marginBottom: 16 }}
+          title={<><Icon name="puzzle" size="sm" />{runtimeText(`beatbox.net.practice.${lab}`)}</>}
+          note={(
+            <span className="bb-practice-acts">
+              {solved ? (
+                <>
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => void again()}>{t('beatbox.net.practice.again')}</Button>
+                  {next ? <Button size="sm" variant="primary" onClick={() => navigate('network/overview', { new: '1', practice: next })}>
+                    {t('beatbox.net.practice.next')}</Button> : null}
+                </>
+              ) : (
+                <>
+                  <Button size="sm" variant="ghost" onClick={() => setHint(!hint)}>{t('beatbox.net.practice.hint')}</Button>
+                  <Button size="sm" variant="primary" icon="check" onClick={check}>{t('beatbox.net.practice.check')}</Button>
+                </>
+              )}
+            </span>
+          )}>
+      {!solved ? <p className="bb-practice-task">{runtimeText(`beatbox.net.practice.${lab}.task`)}</p> : null}
+      {checked ? (
+        <div className="bb-practice-said">
+          <Mark ok={!miss} />
+          <span>{!miss ? t('beatbox.net.practice.done') : runtimeText(`beatbox.net.practice.miss.${miss.why}`, {
+            from: end(miss.goal.from), to: end(miss.goal.to), service: what(miss.goal.service), name: miss.goal.name ?? '',
+          })}</span>
+          <small>{t('beatbox.net.practice.checked', { time: hm(checked.at) })}</small>
+        </div>
+      ) : null}
+      {miss ? (
+        <a className="bb-practice-go" href={href(`network/${PRACTICE_PLACE[lab]}`)}>
+          {runtimeText(`beatbox.net.practice.open.${PRACTICE_PLACE[lab]}`)}<Icon name="arrow" size="sm" />
+        </a>
+      ) : null}
+      {solved ? <p className="bb-net-say bb-practice-why">{runtimeText(`beatbox.net.practice.${lab}.solved`)}</p> : null}
+      {hint && !solved ? <p className="bb-net-say bb-practice-hint"><Icon name="bulb" size="sm" />{runtimeText(`beatbox.net.practice.${lab}.hint`)}</p> : null}
+      {told ? <p className="bb-sbx-no" style={{ fontSize: 12 }}>{told}</p> : null}
     </Card>
   );
 }

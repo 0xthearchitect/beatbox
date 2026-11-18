@@ -1381,6 +1381,18 @@ fn a_network_is_exported_imported_and_brought_back_to_a_save_point() {
     assert_eq!(nodes, ["srv1"]);
     assert_eq!(facts["firewall"]["rules"][0]["destination"], "srv1");
     assert_eq!(facts["dns"]["files.lab"], "10.60.0.9");
+    assert!(state.get("practice").is_none());
+
+    // A practice lab's tasks ride along untouched, through a reset too.
+    let mut practice = state.clone();
+    practice["practice"] = serde_json::json!({"lab": "files", "goals": [{"from": "srv1"}]});
+    let (_r3, drill, _l3, _room3) = network(data!({"cidr": "10.60.0.0/24"}));
+    ok(drill
+        .act("network.import", data!({"state": practice.clone()}))
+        .unwrap());
+    drill.reset().unwrap();
+    let again = ok(drill.act("network.export", data!({})).unwrap());
+    assert_eq!(again["state"]["practice"], practice["practice"]);
 
     // Not a network file, or one from a later BeatBox: refused, nothing changes.
     let code = |sandbox: &Sandbox, capability: &str, arguments: Data| {
@@ -1415,13 +1427,22 @@ fn a_network_is_exported_imported_and_brought_back_to_a_save_point() {
     );
 
     // A save point, a change, and back.
-    let point = ok(lab.act("point.save", data!({"name": "antes"})).unwrap())["id"].clone();
+    // The machines' save points ride along; anything malformed is dropped.
+    let machines = serde_json::json!([{"id": "sbx-1", "name": "lab · antes"}, {"id": 3}]);
+    let point = ok(lab
+        .act("point.save", data!({"name": "antes", "machines": machines}))
+        .unwrap())["id"]
+        .clone();
     ok(lab
         .act("device.add", data!({"kind": "switch", "name": "sw2"}))
         .unwrap());
     ok(lab.act("firewall.remove", data!({"id": "r1"})).unwrap());
     let list = ok(lab.act("point.list", Data::new()).unwrap());
     assert_eq!(list["points"][0]["name"], "antes");
+    assert_eq!(
+        list["points"][0]["machines"],
+        serde_json::json!([{"id": "sbx-1", "name": "lab · antes"}])
+    );
     ok(lab
         .act("point.restore", data!({"id": point.clone()}))
         .unwrap());

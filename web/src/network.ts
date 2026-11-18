@@ -389,6 +389,38 @@ export function cutBy(name: string, source: string, rules: readonly NameRule[], 
   return rules.find((rule) => rule.action === 'cut' && nameFits(rule.name, name) && fits(rule.source, source, here))?.id ?? null;
 }
 
+/* ── practice labs ─────────────────────────────────────────────────────── */
+
+/**
+ * One thing a practice lab wants true: `from` reaches `to` (a machine or
+ * `internet`) by `service` (a SERVICES key), or must not. With `name`,
+ * `from` asks for that name first and it has to lead to `to`.
+ */
+export interface Goal { from: string; to: string; service: string; reach: boolean; name?: string }
+
+/** Why a goal is not met: still blocked, still open, the name leads elsewhere, or a machine is gone. */
+export type MissWhy = 'blocked' | 'open' | 'name' | 'gone';
+
+/** The first goal not met yet, checked the way "Would it get through?" checks; `null` when all are. */
+export function missed(goals: readonly Goal[], rules: readonly Rule[], defaultAllow: boolean, here: Here,
+  nameRules: readonly NameRule[], names: Names): { goal: Goal; why: MissWhy } | null {
+  const at = (node: string) => (node === 'internet' ? OUT_THERE : here.nodes.find((place) => place.node === node)?.address);
+  for (const goal of goals) {
+    const source = at(goal.from);
+    const target = at(goal.to);
+    const what = SERVICES.find((each) => each.key === goal.service);
+    if (!source || !target || !what) return { goal, why: 'gone' };
+    if (goal.name) {
+      const asked = askName(goal.name, source, nameRules, names, here);
+      const address = asked.kind === 'found' || asked.kind === 'sent' ? asked.address : asked.kind === 'outside' ? OUT_THERE : null;
+      if (address !== target) return { goal, why: 'name' };
+    }
+    const verdict = decide(rules, { source, destination: target, protocol: what.protocol, port: what.port, icmpType: 8 }, defaultAllow, here);
+    if (verdict.allowed !== goal.reach) return { goal, why: goal.reach ? 'blocked' : 'open' };
+  }
+  return null;
+}
+
 /** A router: its networks per VLAN and its routes. */
 export interface RouterInfo {
   name: string; main: boolean;
@@ -620,7 +652,7 @@ const LAB_NAMES_EN: Record<string, string> = {
   gestao1: 'mgmt1', gestao2: 'mgmt2', gestao3: 'mgmt3', vendas1: 'sales1', vendas2: 'sales2', vendas3: 'sales3',
   ficheiros: 'files', 'Gestão': 'Management', Vendas: 'Sales', Servidores: 'Servers',
   'pc-sede': 'pc-hq', 'srv-sede': 'srv-hq', 'pc-filial': 'pc-branch', 'srv-filial': 'srv-branch', Filial: 'Branch', 'Ligação': 'Link',
-  correio: 'mail', 'www.empresa.pt': 'www.company.example', 'jogos.exemplo': 'games.example', 'anuncios.exemplo': 'ads.example',
+  convidado: 'guest', correio: 'mail', 'www.empresa.pt': 'www.company.example', 'jogos.exemplo': 'games.example', 'anuncios.exemplo': 'ads.example',
 };
 
 /** A lab with its names in English, values and DNS keys alike. */

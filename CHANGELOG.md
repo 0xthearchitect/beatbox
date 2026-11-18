@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Networks
+
+- Practice labs. New network now starts with three labs where something is
+  broken on purpose: Sales can't get the files, the guests see everything,
+  and a name that goes nowhere. Check says when it is fixed, a hint helps
+  when you are stuck, and Try again puts the lab back as it came.
+- A network's save point can take its running machines with it. Going
+  back puts the network and those machines back together, and says which
+  machine did not come back and why.
+
 ## 0.1.2 (2026-11-16)
 
 Fixes.

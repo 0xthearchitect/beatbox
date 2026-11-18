@@ -299,9 +299,9 @@ test('an example address is the tenth of the network, and none for what is no IP
 
 test('in English, no lab keeps a Portuguese name', () => {
   // A name the English swap leaves alone must read the same in both languages.
-  const same = new Set(['pc1', 'pc2', 'web', 'nas', 'intranet', 'DMZ']);
+  const same = new Set(['pc1', 'pc2', 'web', 'nas', 'intranet', 'DMZ', 'intranet.local']);
   const left = [];
-  for (const lab of ['dmz', 'home', 'sites', 'switches', 'vlans']) {
+  for (const lab of ['dmz', 'home', 'sites', 'switches', 'vlans', 'practice/files', 'practice/guests', 'practice/name']) {
     const pt = JSON.parse(readFileSync(new URL(`../src/labs/${lab}.json`, import.meta.url), 'utf8'));
     const names = (file) => [
       ...file.nodes.map((n) => n.node),
@@ -317,4 +317,33 @@ test('in English, no lab keeps a Portuguese name', () => {
     });
   }
   assert.deepEqual(left, []);
+});
+
+test('each practice lab ships unsolved, its fix solves it, and opening everything does not', () => {
+  const read = (lab) => JSON.parse(readFileSync(new URL(`../src/labs/practice/${lab}.json`, import.meta.url), 'utf8'));
+  const check = (lab) => {
+    const here = {
+      nodes: lab.nodes.map(({ node, address }) => ({ node, address })), gateway: lab.routers[0].networks[0].address,
+      cidr: lab.cidr, internet: lab.internet, groups: lab.firewall.groups,
+      vlanNets: lab.routers.flatMap((r) => r.networks.map(({ vlan, cidr }) => ({ vlan, cidr }))),
+    };
+    return net.missed(lab.practice.goals, lab.firewall.rules, lab.firewall.default === 'allow', here,
+      lab.firewall.names, { dns: lab.dns, records: [], domain: 'local' });
+  };
+  const open = (lab) => ({ ...lab, firewall: { ...lab.firewall, default: 'allow', rules: [] }, dns: {} });
+
+  const files = read('files');
+  assert.equal(check(files)?.why, 'blocked');
+  assert.equal(check({ ...files, firewall: { ...files.firewall, rules: files.firewall.rules.filter((r) => r.id !== 'r2') } }), null);
+  assert.equal(check(open(files))?.why, 'open');
+
+  const guests = read('guests');
+  assert.deepEqual(check(guests)?.goal.to, 'nas');
+  const fence = { ...guests.firewall.rules[0], id: 'r1', action: 'deny', source: 'convidado', destination: '192.168.1.0/24', protocol: 'any', port: null, port_last: null };
+  assert.equal(check({ ...guests, firewall: { ...guests.firewall, rules: [fence] } }), null);
+
+  const name = read('name');
+  assert.equal(check(name)?.why, 'name');
+  assert.equal(check({ ...name, dns: { 'intranet.local': '10.20.30.11' } }), null);
+  assert.equal(check(open(name))?.why, 'open');
 });

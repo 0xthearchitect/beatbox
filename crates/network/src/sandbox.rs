@@ -146,7 +146,7 @@ pub fn actions() -> Vec<ActionSpec> {
         ),
         ActionSpec::new(
             "point.save",
-            vec![may("name", Text)],
+            vec![may("name", Text), may("machines", List)],
             vec![need("id", Text)],
         ),
         ActionSpec::new("point.list", vec![], vec![need("points", List)]),
@@ -673,6 +673,7 @@ impl NetworkSandbox {
                     net.vlan_names.insert(vlan, name.to_owned());
                 }
             }
+            net.practice = Some(&saved["practice"]).filter(|p| p.is_object()).cloned();
             // Captures kept on disk; one recording when the daemon stopped
             // ends there.
             for raw in saved["captures"]
@@ -1583,7 +1584,10 @@ impl NetworkSandbox {
                     .strip_suffix(".json")?
                     .to_owned();
                 let raw: Value = serde_json::from_slice(&std::fs::read(entry.path()).ok()?).ok()?;
-                point_id(&id).then(|| json!({"id": id, "name": raw["name"], "at_ms": raw["at_ms"]}))
+                point_id(&id).then(|| {
+                    let machines = raw.get("machines").cloned().unwrap_or_else(|| json!([]));
+                    json!({"id": id, "name": raw["name"], "at_ms": raw["at_ms"], "machines": machines})
+                })
             })
             .collect();
         points.sort_by_key(|p| std::cmp::Reverse(p["at_ms"].as_u64()));
@@ -1646,7 +1650,17 @@ impl NetworkSandbox {
                     .map_or(0, |d| d.as_millis() as u64);
                 let id = format!("p{at_ms}");
                 let state = Value::Object(exported(&*self.net()?, &self.room));
-                let point = json!({"name": text(action, "name"), "at_ms": at_ms, "state": state});
+                // The machines' own save points taken with it, as the window
+                // names them: kept for going back, never read here.
+                let machines: Vec<Value> = action
+                    .argument("machines")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter(|m| m["id"].is_string() && m["name"].is_string())
+                    .cloned()
+                    .collect();
+                let point = json!({"name": text(action, "name"), "at_ms": at_ms, "state": state, "machines": machines});
                 std::fs::create_dir_all(self.points_path())
                     .and_then(|()| {
                         std::fs::write(
@@ -2521,6 +2535,7 @@ fn facts(net: &Net, room: &std::path::Path) -> Data {
         })).collect::<Vec<_>>(),
         "topology": net.topology.to_value(),
         "vlan_names": net.vlan_names.iter().map(|(v, n)| (v.to_string(), json!(n))).collect::<serde_json::Map<_, _>>(),
+        "practice": net.practice,
         "cable_traffic": net.node_traffic.iter().map(|(node, traffic)| {
             let mut value = traffic_value(*traffic);
             value["node"] = json!(node);
@@ -2636,8 +2651,13 @@ fn kept(net: &Net, room: &std::path::Path) -> Data {
                 | "routers"
                 | "cable_traffic"
                 | "vlan_names"
+                | "practice"
         )
     });
+    // An ordinary network's file says nothing about practice.
+    if state.get("practice").is_some_and(Value::is_null) {
+        state.remove("practice");
+    }
     // What the Server published goes with the Server.
     if let Some(Value::Object(dns)) = state.get_mut("dns") {
         dns.retain(|name, _| !net.published.contains_key(name));
