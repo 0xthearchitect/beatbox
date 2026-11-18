@@ -45,6 +45,11 @@ fits on a laptop next to a few full machines. Then watch it: every
 conversation, the way it went through the network, and what the firewall
 did to it.
 
+How much memory? One Windows machine and a dozen light PCs take about
+4.3 GB: Windows takes the 4 GB you give it, the network and everything on
+it about 8 MB, and the BeatBox window about 200 MB. That fits on a laptop
+with 8 GB if you close the browser first; 16 GB is comfortable.
+
 Save a network to a file, or start a new one from a template.
 
 New to this? Start with a practice lab. Something in it is broken on
@@ -81,6 +86,10 @@ Get the installer for your system from
 | Fedora, openSUSE | `.rpm` |
 | Any other Linux | `.AppImage` (install QEMU first) |
 | Windows 10 and 11 | `-setup.exe` |
+
+On Windows, BeatBox runs machines; networks and servers, and so the
+practice labs, are Linux only for now
+([#4](https://github.com/0xthearchitect/beatbox/issues/4)).
 
 The first time it opens, BeatBox checks your computer and offers to fix
 what is missing: QEMU, and access to hardware virtualisation (KVM on Linux,

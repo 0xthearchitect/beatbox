@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.1.3 (2026-11-18)
+
+Practice labs, save points that take the whole lab back, and fixes.
+
+### Machines
+
+- A machine that was running when the computer restarted, crashed or ran
+  out of memory, with BeatBox closed, comes back off with its disk, and
+  starts again. Before, it came back broken, and the only way out wiped
+  its disk.
 
 ### Networks
 
@@ -11,6 +20,13 @@
 - A network's save point can take its running machines with it. Going
   back puts the network and those machines back together, and says which
   machine did not come back and why.
+- Changing a network's addresses also moves the name server its routers
+  hand out, so machines keep finding names after they renew.
+
+### Servers
+
+- A server's name service answers again after BeatBox is closed and
+  opened. Before, it could say it was running while nothing answered.
 
 ## 0.1.2 (2026-11-16)
 
