@@ -18,8 +18,9 @@ knowledge of the code:
   from.
 - **A new network template.** Each one is a JSON file in `web/src/labs/`,
   like `dmz.json`.
-- **A new language.** BeatBox first needs room for more than two; there
-  is an issue for that. Then a language is a folder beside `locales/en/`.
+- **A new language.** BeatBox first needs room for more than two
+  ([#13](https://github.com/0xthearchitect/beatbox/issues/13)). Then a
+  language is a folder beside `locales/en/`.
   It can be partly done and grow, and BeatBox offers it once every text is
   translated.
 

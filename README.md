@@ -20,6 +20,9 @@ BeatBox is a lab for hands-on cybersecurity practice that runs on your own
 computer. Real machines, real networks, real services. Set them up, attack
 them, defend them, and throw them away when you are done.
 
+A whole network of light PCs and servers takes about 8 MB, so it fits on a
+student laptop next to a 4 GB Windows machine.
+
 <img src="assets/start.png" alt="BeatBox start screen">
 
 ## Machines
