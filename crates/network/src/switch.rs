@@ -11,11 +11,12 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use beatbox_engine::{Data, data};
 
+use crate::frame::link::Port;
 use crate::frame::{self, BROADCAST, Flow, GATEWAY_MAC, Mac};
 use crate::topology::{DEFAULT_VLAN, Device, End, Kind, Mode, Topology};
 
@@ -28,8 +29,8 @@ pub struct Node {
     pub address: Ipv4Addr,
     /// The one Ethernet address it may send from.
     pub mac: Mac,
-    /// Its end of the cable: the path its frames arrive from.
-    pub port: PathBuf,
+    /// Its end of the cable: where its frames arrive from.
+    pub port: Port,
     /// The device port it is plugged into.
     pub at: End,
 }
@@ -1511,9 +1512,9 @@ impl Net {
         Ok(())
     }
 
-    /// Which node's cable `path` is.
-    pub fn port_of(&self, path: &Path) -> Option<usize> {
-        self.nodes.iter().position(|node| node.port == path)
+    /// Which node's cable `port` is.
+    pub fn port_of(&self, port: &Port) -> Option<usize> {
+        self.nodes.iter().position(|node| node.port == *port)
     }
 
     /// What `name` resolves to: a record, a node (`name`, or `name.` anything
@@ -2107,7 +2108,7 @@ impl Net {
     /// a reset goes back to too). Its socket moves with it.
     pub fn rename_node(&mut self, index: usize, new: &str, room: &Path) {
         let old = std::mem::replace(&mut self.nodes[index].name, new.to_owned());
-        self.nodes[index].port = room.join(format!("{new}.sock"));
+        self.nodes[index].port = Port::Path(room.join(format!("{new}.sock")));
         if let Some(light) = self.lights.remove(&old) {
             self.lights.insert(new.to_owned(), light);
         }
@@ -3750,7 +3751,7 @@ pub fn parse_cidr(text: &str) -> Option<(Ipv4Addr, u8)> {
 struct Pending {
     at: Instant,
     sequence: u64,
-    to: PathBuf,
+    to: Port,
     bytes: Vec<u8>,
 }
 
@@ -3762,9 +3763,9 @@ struct Pending {
 #[cfg(any(unix, test))]
 struct Shaper {
     queue: std::collections::BinaryHeap<Reverse<Pending>>,
-    busy: HashMap<PathBuf, Instant>,
+    busy: HashMap<Port, Instant>,
     /// When the last frame to each port goes; none goes before it.
-    last: HashMap<PathBuf, Instant>,
+    last: HashMap<Port, Instant>,
     sequence: u64,
     seed: u64,
 }
@@ -3794,7 +3795,7 @@ impl Shaper {
     }
 
     /// Queue it; `false` if it was lost.
-    fn schedule(&mut self, traffic: Traffic, to: PathBuf, bytes: Vec<u8>) -> bool {
+    fn schedule(&mut self, traffic: Traffic, to: Port, bytes: Vec<u8>) -> bool {
         if traffic.loss_percent > 0.0 && self.random() * 100.0 < traffic.loss_percent {
             return false;
         }
@@ -3846,8 +3847,6 @@ pub use running::Switch;
 mod running {
     use std::collections::HashMap;
     use std::io::ErrorKind;
-    use std::os::unix::net::UnixDatagram;
-    use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc::{self, Sender};
     use std::sync::{Arc, Mutex, PoisonError};
@@ -3857,28 +3856,32 @@ mod running {
     use beatbox_engine::Emitter;
 
     use super::{Leaving, Net, Shaper, Traffic};
+    use crate::frame::link::{Port, Socket};
     use crate::router::{self, At, Back};
 
     /// The thread that carries frames, while it runs, and the uplink beside
     /// it that carries what leaves through the router.
     pub struct Switch {
-        path: PathBuf,
+        port: Port,
         stop: Arc<AtomicBool>,
         thread: Option<JoinHandle<()>>,
         uplink: Option<JoinHandle<()>>,
-        uplink_path: PathBuf,
+        uplink_port: Port,
     }
 
     impl Switch {
-        /// Listen on `path` and carry frames for `net` until [`Switch::stop`].
-        pub fn start(path: &Path, net: Arc<Mutex<Net>>, emit: Emitter) -> std::io::Result<Self> {
-            let _ = std::fs::remove_file(path);
-            let socket = UnixDatagram::bind(path)?;
-            let uplink_path = path.with_file_name("uplink.sock");
-            let _ = std::fs::remove_file(&uplink_path);
-            let back = UnixDatagram::bind(&uplink_path)?;
+        /// Listen on `port` and carry frames for `net` until
+        /// [`Switch::stop`]. The router's way back listens on `uplink`.
+        pub fn start(
+            port: &Port,
+            uplink: &Port,
+            net: Arc<Mutex<Net>>,
+            emit: Emitter,
+        ) -> std::io::Result<Self> {
+            let socket = Socket::bind(port)?;
+            let back = Socket::bind(uplink)?;
             let (leave, leaving) = mpsc::channel();
-            let switch_path = path.to_owned();
+            let switch_port = port.clone();
             let at = {
                 let net = net.lock().unwrap_or_else(PoisonError::into_inner);
                 At {
@@ -3886,23 +3889,23 @@ mod running {
                     prefix: net.live.prefix,
                 }
             };
-            let uplink = std::thread::Builder::new()
+            let uplink_thread = std::thread::Builder::new()
                 .name(format!("beatbox-uplink-{}", emit.sandbox_id()))
                 .spawn(move || {
-                    router::carry_out(&leaving, &back, &switch_path, router::resolver(), at)
+                    router::carry_out(&leaving, &back, &switch_port, router::resolver(), at)
                 })?;
             let stop = Arc::new(AtomicBool::new(false));
             let stopping = Arc::clone(&stop);
-            let from_uplink = uplink_path.clone();
+            let from_uplink = uplink.clone();
             let thread = std::thread::Builder::new()
                 .name(format!("beatbox-switch-{}", emit.sandbox_id()))
                 .spawn(move || carry(&socket, &net, &emit, &stopping, &leave, &from_uplink))?;
             Ok(Self {
-                path: path.to_owned(),
+                port: port.clone(),
                 stop,
                 thread: Some(thread),
-                uplink: Some(uplink),
-                uplink_path,
+                uplink: Some(uplink_thread),
+                uplink_port: uplink.clone(),
             })
         }
 
@@ -3920,8 +3923,8 @@ mod running {
 
         fn halt(&mut self) {
             self.stop.store(true, Ordering::SeqCst);
-            if let Ok(waker) = UnixDatagram::unbound() {
-                let _ = waker.send_to(&[], &self.path);
+            if let Ok(waker) = Socket::sender(&self.port) {
+                let _ = waker.send_to(&[], &self.port);
             }
             if let Some(thread) = self.thread.take() {
                 let _ = thread.join();
@@ -3930,8 +3933,8 @@ mod running {
             if let Some(uplink) = self.uplink.take() {
                 let _ = uplink.join();
             }
-            let _ = std::fs::remove_file(&self.path);
-            let _ = std::fs::remove_file(&self.uplink_path);
+            self.port.forget();
+            self.uplink_port.forget();
         }
     }
 
@@ -3944,12 +3947,12 @@ mod running {
     }
 
     fn carry(
-        socket: &UnixDatagram,
+        socket: &Socket,
         net: &Mutex<Net>,
         emit: &Emitter,
         stop: &AtomicBool,
         leave: &Sender<Leaving>,
-        uplink: &Path,
+        uplink: &Port,
     ) {
         let mut shaper = Shaper::new();
         let mut cables = HashMap::new();
@@ -4004,19 +4007,19 @@ mod running {
             if stop.load(Ordering::SeqCst) {
                 return;
             }
-            let Some(path) = from.as_pathname() else {
+            let Some(from) = from else {
                 continue;
             };
             let (outs, said) = {
                 let mut net = net.lock().unwrap_or_else(PoisonError::into_inner);
-                let (outs, said) = if path == uplink {
+                let (outs, said) = if from == *uplink {
                     match router::decode(&buffer[..size]) {
                         Some(Back::Udp(back, data)) => net.arrive(back, data),
                         Some(Back::Packet(ip)) => net.arrive_packet(ip),
                         None => continue,
                     }
                 } else {
-                    let Some(index) = net.port_of(path) else {
+                    let Some(index) = net.port_of(&from) else {
                         continue;
                     };
                     net.handle(index, &buffer[..size])
@@ -4025,7 +4028,7 @@ mod running {
                     let _ = leave.send(each);
                 }
                 let costs = net.take_costs();
-                let outs: Vec<(PathBuf, Vec<u8>, Traffic)> = outs
+                let outs: Vec<(Port, Vec<u8>, Traffic)> = outs
                     .into_iter()
                     .enumerate()
                     .map(|(i, (to, bytes))| {
@@ -4062,9 +4065,9 @@ mod running {
     /// socket that sent it: on one socket for every port, about 160 frames
     /// for a paused machine fill the send buffer and stall every port.
     /// Never blocking, a full cable drops the frame, as a real port would. Guests read with `recv`, so the sender needs no name.
-    fn send(cables: &mut HashMap<PathBuf, UnixDatagram>, to: &Path, bytes: &[u8]) {
+    fn send(cables: &mut HashMap<Port, Socket>, to: &Port, bytes: &[u8]) {
         if !cables.contains_key(to) {
-            let Ok(socket) = UnixDatagram::unbound() else {
+            let Ok(socket) = Socket::sender(to) else {
                 return;
             };
             let _ = socket.set_nonblocking(true);
@@ -4084,6 +4087,8 @@ mod running {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     fn net() -> Net {
@@ -4108,7 +4113,7 @@ mod tests {
                 name: name.into(),
                 address,
                 mac: frame::node_mac(address),
-                port: PathBuf::from(name),
+                port: Port::Path(PathBuf::from(name)),
                 at: End {
                     device: 0,
                     port: u16::from(last),
@@ -4819,7 +4824,7 @@ mod tests {
                 name: name.into(),
                 address,
                 mac: frame::node_mac(address),
-                port: PathBuf::from(name),
+                port: Port::Path(PathBuf::from(name)),
                 at,
             });
         }
@@ -4972,7 +4977,7 @@ mod tests {
                 name: name.into(),
                 address,
                 mac: frame::node_mac(address),
-                port: PathBuf::from(name),
+                port: Port::Path(PathBuf::from(name)),
                 at,
             });
         }
@@ -5339,7 +5344,7 @@ mod tests {
             name: "c".into(),
             address,
             mac: frame::node_mac(address),
-            port: PathBuf::from("c"),
+            port: Port::Path(PathBuf::from("c")),
             at: end(r2, 5),
         });
         let route = |to: [u8; 4], prefix, via: [u8; 4]| Route {
@@ -5952,12 +5957,12 @@ mod tests {
             loss_percent: 100.0,
             ..Traffic::default()
         };
-        assert!(!shaper.schedule(lossy, "x".into(), vec![0; 100]));
+        assert!(!shaper.schedule(lossy, Port::parse("x"), vec![0; 100]));
         let slow = Traffic {
             latency_ms: 50.0,
             ..Traffic::default()
         };
-        assert!(shaper.schedule(slow, "x".into(), vec![0; 100]));
+        assert!(shaper.schedule(slow, Port::parse("x"), vec![0; 100]));
         let (ready, wait) = shaper.due();
         assert!(ready.is_empty());
         assert!(wait.unwrap() > Duration::from_millis(40));
@@ -5966,9 +5971,9 @@ mod tests {
             bandwidth_kbps: 8.0,
             ..Traffic::default()
         };
-        assert!(shaper.schedule(thin, "y".into(), vec![0; 1000]));
-        assert!(shaper.schedule(thin, "y".into(), vec![0; 10]));
-        assert!(!shaper.schedule(thin, "y".into(), vec![0; 10]));
+        assert!(shaper.schedule(thin, Port::parse("y"), vec![0; 1000]));
+        assert!(shaper.schedule(thin, Port::parse("y"), vec![0; 10]));
+        assert!(!shaper.schedule(thin, Port::parse("y"), vec![0; 10]));
     }
 
     /// The lab's own settings: jitter far wider than a frame's time on the
@@ -5983,7 +5988,7 @@ mod tests {
             ..Traffic::default()
         };
         for each in 0..200u8 {
-            assert!(shaper.schedule(lab, "x".into(), vec![each; 100]));
+            assert!(shaper.schedule(lab, Port::parse("x"), vec![each; 100]));
         }
         std::thread::sleep(Duration::from_millis(20));
         let (ready, _) = shaper.due();

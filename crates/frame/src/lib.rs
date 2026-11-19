@@ -6,6 +6,8 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+pub mod link;
+
 /// An Ethernet address.
 pub type Mac = [u8; 6];
 /// Everybody on the segment.

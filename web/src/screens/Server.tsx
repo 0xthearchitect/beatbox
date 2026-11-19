@@ -270,6 +270,9 @@ export function ServerServices() {
   const asked = params.get('add');
   useEffect(() => { if (asked) setAdding(asked); }, [asked]);
   const closeAdding = () => { setAdding(null); if (asked) navigate('server/services'); };
+  // One check for the strip and the service panel: two copies drifted apart
+  // for seconds after "Turn on", and the panel kept saying the machine was off.
+  const checked = useCheck(srv);
 
   if (making || (srv.list && !srv.list.length)) return <NewServer />;
   if (!srv.server) return null;
@@ -277,9 +280,9 @@ export function ServerServices() {
     <div className="bb-srv-ov">
       <Top srv={srv} onAdd={() => setAdding('')} />
       {srv.told ? <p className="bb-sbx-no" style={{ margin: 0 }}>{srv.told}</p> : null}
-      <Helpers srv={srv} />
+      <Helpers srv={srv} checked={checked} />
       {srv.services === null ? null
-        : srv.services.length ? <Board srv={srv} />
+        : srv.services.length ? <Board srv={srv} check={checked.check} />
         : <Empty srv={srv} onPick={(definition) => setAdding(definition)} />}
       {adding !== null ? <AddService srv={srv} start={adding} onClose={closeAdding} /> : null}
     </div>
@@ -335,8 +338,7 @@ function Top({ srv, onAdd }: { srv: Server; onAdd: () => void }) {
  * machine — server — network in one line. What's fine hides in the hover;
  * each problem gets its own line with the button that fixes it.
  */
-function Helpers({ srv }: { srv: Server }) {
-  const { check, recheck } = useCheck(srv);
+function Helpers({ srv, checked: { check, recheck } }: { srv: Server; checked: ReturnType<typeof useCheck> }) {
   const hosts = useOthers('host');
   const networks = useOthers('network');
   const uses = bag(srv.server?.config.uses);
@@ -358,10 +360,10 @@ function Helpers({ srv }: { srv: Server }) {
       if (check?.host?.programs[program] === false) missing.set(program, [...(missing.get(program) ?? []), service.name]);
     }
   }
-  async function turnOn(id: string) {
+  async function turnOn(id: string, transition = 'start') {
     setBusy(id);
     try {
-      await call('sandbox.transition', { id, transition: 'start' });
+      await call('sandbox.transition', { id, transition });
       await srv.load();
       await recheck();
     } catch { /* the line shows the state */ }
@@ -370,11 +372,15 @@ function Helpers({ srv }: { srv: Server }) {
   const stateOf = (state: string | undefined) => runtimeText(`beatbox.plain.state.${state === 'gone' ? 'destroyed' : state ?? 'created'}`);
   const toneOf = (state: string | undefined) => (state === 'running' ? 'ok' : state === 'gone' ? 'failed' : 'stopped');
   const hostOn = hostState === 'running';
+  const hostPaused = hostState === 'paused';
   const openMachine = () => { remember('host', text(uses.host)); navigate('host/machine'); };
   const turnOnButton = (id: string) => <Button size="sm" icon="play" disabled={busy !== ''} onClick={() => void turnOn(id)}>{t('beatbox.srv.helpers.turn_on')}</Button>;
   const openButton = <Button size="sm" icon="arrow" onClick={openMachine}>{t('beatbox.srv.helpers.open_machine')}</Button>;
   const issues: { key: string; tone: 'no' | 'warn' | 'off'; words: string; action?: ReactNode }[] = [];
-  if (uses.host && hostState && !hostOn && hostState !== 'gone') issues.push({ key: 'host-off', tone: 'off', words: t('beatbox.srv.helpers.machine_off'), action: turnOnButton(text(uses.host)) });
+  // Frozen is not off: Carry on brings its services back with it, no start needed.
+  if (hostPaused) issues.push({ key: 'host-paused', tone: 'off', words: t('beatbox.srv.helpers.machine_paused'),
+    action: <Button size="sm" icon="play" disabled={busy !== ''} onClick={() => void turnOn(text(uses.host), 'resume')}>{runtimeText('beatbox.plain.do.resume')}</Button> });
+  else if (uses.host && hostState && !hostOn && hostState !== 'gone') issues.push({ key: 'host-off', tone: 'off', words: t('beatbox.srv.helpers.machine_off'), action: turnOnButton(text(uses.host)) });
   if (uses.host && uses.network && apart) issues.push({ key: 'cable', tone: 'no', words: t('beatbox.srv.helpers.cable_no', { network: networkName }), action: openButton });
   if (hostOn && check?.host && !check.host.agent) issues.push({ key: 'agent', tone: 'no', words: t('beatbox.srv.helpers.agent_no'), action: openButton });
   if (hostOn && check?.host) for (const [program, who] of missing) {
@@ -475,7 +481,7 @@ function Lately({ srv }: { srv: Server }) {
 
 /* ── the services ─────────────────────────────────────────────────────── */
 
-function Board({ srv }: { srv: Server }) {
+function Board({ srv, check }: { srv: Server; check: Check | null }) {
   const services = srv.services!;
   const [chosen, setChosen] = useState(services[0]!.name);
   const picked = services.find((service) => service.name === chosen) ?? services[0]!;
@@ -489,7 +495,7 @@ function Board({ srv }: { srv: Server }) {
           ))}
         </div>
       </section>
-      <Side srv={srv} service={picked} />
+      <Side srv={srv} service={picked} check={check} />
       <Lately srv={srv} />
     </div>
   );
@@ -522,7 +528,7 @@ function Block({ srv, service, on: picked, onPick }: { srv: Server; service: Ser
  * The picked service. Left: what happened, address, Try from, More.
  * Right: its log, always, even empty -- otherwise half the panel sits empty.
  */
-function Side({ srv, service }: { srv: Server; service: Service }) {
+function Side({ srv, service, check }: { srv: Server; service: Service; check: Check | null }) {
   const [lines, setLines] = useState<string[]>([]);
   const [described, setDescribed] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
@@ -536,9 +542,10 @@ function Side({ srv, service }: { srv: Server; service: Service }) {
   const problem = how === 'slow' ? t('beatbox.srv.problem.slow')
     : how !== 'failed' ? ''
     : service.problem ? say(service.problem, service.problem.code) : t('beatbox.srv.problem.failed');
-  const { check } = useCheck(srv);
 
   useEffect(() => { setAsking(false); setTold(''); setEditing(null); setLines([]); }, [service.name]);
+  // A "machine is off" line is wrong once the machine or network changes.
+  useEffect(() => { setTold(''); }, [check?.host?.state, check?.network?.state]);
   // Log: every 5s while it runs and the page is visible. Once if it failed.
   useEffect(() => {
     if (!live && how !== 'failed') return;
@@ -593,6 +600,8 @@ function Side({ srv, service }: { srv: Server; service: Service }) {
   const needs = needsOf(srv, definition, check);
   // Missing needs go in the problem box. The full list is under More.
   const lacking = needs.filter((need) => need.state === 'no');
+  // Its machine or network off: the box says so, and pressing would only say it again.
+  const waits = !live && lacking.some((need) => need.key === 'on' || need.key === 'net');
   const running = service.state === 'running';
   const outdated = definition && service.definitionVersion && definition.version !== service.definitionVersion;
   const logged = live || how === 'failed';
@@ -608,7 +617,7 @@ function Side({ srv, service }: { srv: Server; service: Service }) {
           </div>
         </div>
         <div className="bb-srv-sideacts">
-          <Button variant={live ? undefined : 'primary'} icon={live ? 'stop' : 'play'} disabled={busy} onClick={() => void run(primary[0]!)}>{t(primary[1])}</Button>
+          <Button variant={live ? undefined : 'primary'} icon={live ? 'stop' : 'play'} disabled={busy || waits} onClick={() => void run(primary[0]!)}>{t(primary[1])}</Button>
           {live ? <Button icon="refresh" disabled={busy} onClick={() => void run('service.restart')}>{t('beatbox.srv.do.restart')}</Button> : null}
           <Button icon="pencil" disabled={busy || running} title={running ? t('beatbox.srv.edit.stop_first') : undefined}
                   onClick={() => void edit()}>{t('beatbox.srv.do.edit')}</Button>
@@ -634,7 +643,8 @@ function Side({ srv, service }: { srv: Server; service: Service }) {
               ) : null}
             </div>
           ) : null}
-          {how === 'stopped' && service.wanted ? (
+          {/* The needs box above already says its machine or network is off. */}
+          {how === 'stopped' && service.wanted && !lacking.length ? (
             <p className="bb-faint" style={{ margin: 0 }}>{t(srv.server?.state.lifecycle !== 'running' ? 'beatbox.srv.side.server_off'
               : definition?.runtime === 'internal' ? 'beatbox.srv.was_running_network' : 'beatbox.srv.was_running')}</p>
           ) : null}
@@ -739,7 +749,8 @@ function needsOf(srv: Server, definition: Definition | undefined, check: Check |
     return [{ key: 'net', state: !check ? 'off' : check.network?.state === 'running' ? 'ok' : 'no', words: t('beatbox.srv.reqs.network_on') }];
   }
   return [
-    { key: 'on', state: !check ? 'off' : host?.state === 'running' ? 'ok' : 'no', words: t('beatbox.srv.reqs.machine_on') },
+    { key: 'on', state: !check ? 'off' : host?.state === 'running' ? 'ok' : 'no',
+      words: t(host?.state === 'paused' ? 'beatbox.srv.reqs.machine_unpaused' : 'beatbox.srv.reqs.machine_on') },
     { key: 'agent', state: host?.state !== 'running' ? 'off' : host.agent ? 'ok' : 'no', words: t('beatbox.srv.reqs.agent') },
     ...(definition.requires ?? []).map((program) => ({
       key: program,

@@ -50,13 +50,12 @@ pub use unix::Node;
 
 #[cfg(unix)]
 mod unix {
-    use std::os::unix::net::UnixDatagram;
-    use std::path::{Path, PathBuf};
     use std::sync::PoisonError;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread::JoinHandle;
 
     use beatbox_frame as frame;
+    use beatbox_frame::link::{Port, Socket};
 
     use super::*;
 
@@ -64,9 +63,9 @@ mod unix {
     pub struct Node {
         /// Its address on that network.
         pub address: Ipv4Addr,
-        port: PathBuf,
-        /// The thread's socket, held here only to be shut down.
-        socket: UnixDatagram,
+        port: Port,
+        /// The thread's socket, held here only to wake it.
+        socket: Socket,
         stop: Arc<AtomicBool>,
         thread: Option<JoinHandle<()>>,
     }
@@ -82,12 +81,12 @@ mod unix {
                 .map_err(|_| invalid("network.attach said no address"))?;
             let mac =
                 mac(field(answer, "mac")?).ok_or_else(|| invalid("network.attach said no mac"))?;
-            let port = PathBuf::from(field(answer, "port")?);
-            let switch = PathBuf::from(field(answer, "switch")?);
+            let port = Port::parse(field(answer, "port")?);
+            let switch = Port::parse(field(answer, "switch")?);
             // The port is this node's own (named after the Server's id): a
-            // file left there is from a daemon that went away holding it.
-            let _ = std::fs::remove_file(&port);
-            let socket = UnixDatagram::bind(&port)?;
+            // file left there is from a daemon that went away holding it,
+            // and binding takes it over.
+            let socket = Socket::bind(&port)?;
             let held = socket.try_clone()?;
             let stop = Arc::new(AtomicBool::new(false));
             let stopping = Arc::clone(&stop);
@@ -113,17 +112,15 @@ mod unix {
             self.halt();
         }
 
-        /// Shutting the socket down wakes the thread's `recv` whether or not
-        /// its file is still there: a datagram sent to a path somebody
-        /// already removed would wake nothing, and the join would wait for
-        /// ever.
+        /// Woken through its own socket, whether or not the file is still
+        /// there: otherwise the join could wait for ever.
         fn halt(&mut self) {
             self.stop.store(true, Ordering::SeqCst);
-            let _ = self.socket.shutdown(std::net::Shutdown::Both);
+            self.socket.wake();
             if let Some(thread) = self.thread.take() {
                 let _ = thread.join();
             }
-            let _ = std::fs::remove_file(&self.port);
+            self.port.forget();
         }
     }
 
@@ -136,8 +133,8 @@ mod unix {
     }
 
     fn serve(
-        socket: &UnixDatagram,
-        switch: &Path,
+        socket: &Socket,
+        switch: &Port,
         address: Ipv4Addr,
         mac: frame::Mac,
         services: &Mutex<BTreeMap<String, Running>>,
@@ -252,6 +249,25 @@ mod tests {
         let node = Node::start(&answer, Shared::default(), "test").unwrap();
         assert!(node.alive());
         std::fs::remove_dir_all(&room).unwrap();
+        let (done, stopped) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            node.stop();
+            let _ = done.send(());
+        });
+        assert!(
+            stopped.recv_timeout(Duration::from_secs(5)).is_ok(),
+            "stop hung"
+        );
+    }
+
+    #[test]
+    fn it_stops_on_a_udp_cable_too() {
+        let answer = data!({
+            "address": "10.20.0.2", "mac": "02:bb:0a:14:00:02",
+            "port": "udp:127.0.0.1:0", "switch": "udp:127.0.0.1:9",
+        });
+        let node = Node::start(&answer, Shared::default(), "test").unwrap();
+        assert!(node.alive());
         let (done, stopped) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             node.stop();

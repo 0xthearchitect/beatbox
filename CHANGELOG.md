@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Servers
+
+- A Server whose machine is off or frozen no longer calls its services
+  working, and its page says what is missing once. A frozen machine's
+  services stay on the page, and Carry on brings them back without
+  starting them again.
+
 ## 0.1.3 (2026-11-18)
 
 Practice labs, save points that take the whole lab back, and fixes.

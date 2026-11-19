@@ -12,11 +12,11 @@
 //! in words.
 
 use std::net::Ipv4Addr;
-use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
 use crate::frame::Mac;
+use crate::frame::link::Port;
 
 /// What a light machine is and answers. Its address is the node's: the
 /// network gives it, by DHCP or by being told.
@@ -103,9 +103,9 @@ pub struct Start {
     /// Its node's MAC.
     pub mac: Mac,
     /// Its end of the cable.
-    pub port: PathBuf,
-    /// The switch's socket.
-    pub switch: PathBuf,
+    pub port: Port,
+    /// The switch's end.
+    pub switch: Port,
     /// Its address and prefix, as the network gives them.
     pub address: Ipv4Addr,
     /// Its prefix length.
@@ -123,7 +123,6 @@ pub struct Start {
 mod machine {
     use std::io::ErrorKind;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use std::os::unix::net::UnixDatagram;
     use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
     use std::thread::JoinHandle;
     use std::time::{Duration, Instant};
@@ -140,6 +139,7 @@ mod machine {
 
     use super::Start;
     use crate::frame;
+    use crate::frame::link::Socket;
 
     type Ask = (String, Sender<Vec<Value>>);
 
@@ -154,8 +154,7 @@ mod machine {
     impl Light {
         /// Start it on its cable.
         pub fn spawn(start: Start) -> std::io::Result<Self> {
-            let _ = std::fs::remove_file(&start.port);
-            let socket = UnixDatagram::bind(&start.port)?;
+            let socket = Socket::bind(&start.port)?;
             let (ask, asks) = mpsc::channel();
             let first = start.clone();
             let thread = std::thread::Builder::new()
@@ -198,7 +197,7 @@ mod machine {
             if let Some(thread) = self.thread.take() {
                 let _ = thread.join();
             }
-            let _ = std::fs::remove_file(&self.start.port);
+            self.start.port.forget();
         }
     }
 
@@ -212,7 +211,7 @@ mod machine {
 
     /* ── the machine's thread ─────────────────────────────────────────────── */
 
-    fn live(start: Start, socket: UnixDatagram, asks: &Receiver<Ask>) {
+    fn live(start: Start, socket: Socket, asks: &Receiver<Ask>) {
         let mut machine = Machine::new(start, socket);
         loop {
             match asks.try_recv() {
@@ -278,7 +277,7 @@ mod machine {
 
     struct Machine {
         start: Start,
-        socket: UnixDatagram,
+        socket: Socket,
         wire: Wire,
         iface: Interface,
         sockets: SocketSet<'static>,
@@ -302,7 +301,7 @@ mod machine {
     }
 
     impl Machine {
-        fn new(start: Start, socket: UnixDatagram) -> Self {
+        fn new(start: Start, socket: Socket) -> Self {
             let mut wire = Wire::default();
             let mut config = Config::new(HardwareAddress::Ethernet(EthernetAddress(start.mac)));
             // Its IPv6 address made from the router's advertisement.

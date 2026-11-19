@@ -18,8 +18,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::io::{ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, Shutdown, SocketAddr, SocketAddrV4, TcpStream, UdpSocket};
-use std::os::unix::net::UnixDatagram;
-use std::path::Path;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
@@ -29,6 +27,7 @@ use smoltcp::socket::tcp;
 use smoltcp::time::Instant as Moment;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr, IpListenEndpoint};
 
+use crate::frame::link::{Port, Socket};
 use crate::frame::{self, Flow};
 use crate::switch::Leaving;
 
@@ -123,8 +122,8 @@ pub struct At {
 /// Carry what leaves until the switch lets go of `leaving`.
 pub fn carry_out(
     leaving: &Receiver<Leaving>,
-    back: &UnixDatagram,
-    switch: &Path,
+    back: &Socket,
+    switch: &Port,
     resolver: Option<SocketAddrV4>,
     at: At,
 ) {
@@ -570,7 +569,7 @@ mod tests {
     /// the switch it answers to.
     struct Running {
         leave: Option<Sender<Leaving>>,
-        switch: UnixDatagram,
+        switch: Socket,
         thread: Option<std::thread::JoinHandle<()>>,
         room: std::path::PathBuf,
     }
@@ -581,15 +580,15 @@ mod tests {
                 std::env::temp_dir().join(format!("bb-router-{name}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&room);
             std::fs::create_dir_all(&room).unwrap();
-            let switch_path = room.join("s.sock");
-            let switch = UnixDatagram::bind(&switch_path).unwrap();
+            let switch_port = Port::Path(room.join("s.sock"));
+            let switch = Socket::bind(&switch_port).unwrap();
             switch
                 .set_read_timeout(Some(Duration::from_millis(20)))
                 .unwrap();
-            let back = UnixDatagram::bind(room.join("u.sock")).unwrap();
+            let back = Socket::bind(&Port::Path(room.join("u.sock"))).unwrap();
             let (leave, leaving) = mpsc::channel();
             let thread =
-                std::thread::spawn(move || carry_out(&leaving, &back, &switch_path, None, AT));
+                std::thread::spawn(move || carry_out(&leaving, &back, &switch_port, None, AT));
             Self {
                 leave: Some(leave),
                 switch,

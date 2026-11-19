@@ -15,6 +15,7 @@ use beatbox_engine::{
 use serde_json::{Value, json};
 
 use crate::capture::{self, Capture, Keep, Talk, Tap};
+use crate::frame::link::Port;
 use crate::frame::{self, mac_text, node_mac};
 use crate::light::LightConf;
 use crate::renumber;
@@ -817,7 +818,7 @@ impl NetworkSandbox {
                     name: name.to_owned(),
                     address,
                     mac,
-                    port: self.room.join(format!("{name}.sock")),
+                    port: Port::Path(self.room.join(format!("{name}.sock"))),
                     at,
                 });
             }
@@ -878,6 +879,10 @@ impl NetworkSandbox {
         self.room.join("switch.sock")
     }
 
+    fn switch_port(&self) -> Port {
+        Port::Path(self.switch_path())
+    }
+
     /// What light machine `name` starts from now, if it is one.
     #[cfg(unix)]
     fn light_start(&self, net: &Net, name: &str) -> Option<crate::light::Start> {
@@ -892,7 +897,7 @@ impl NetworkSandbox {
             name: name.to_owned(),
             mac: node.mac,
             port: node.port.clone(),
-            switch: self.switch_path(),
+            switch: self.switch_port(),
             address: node.address,
             prefix: range.1,
             gateway,
@@ -1141,7 +1146,7 @@ impl NetworkSandbox {
         if !node_name(&name) {
             return Err(refused(reason!("network.bad_node", node = name)));
         }
-        let switch = self.switch_path();
+        let switch = self.switch_port();
         let room = self.room.clone();
         let mut net = self.net()?;
         if let Some(node) = net.node(&name) {
@@ -1196,7 +1201,7 @@ impl NetworkSandbox {
             name,
             address,
             mac: node_mac(address),
-            port,
+            port: Port::Path(port),
             at,
         };
         net.nodes.push(node);
@@ -1234,7 +1239,7 @@ impl NetworkSandbox {
             members.retain(|member| *member != node.name);
         }
         drop(net);
-        let _ = std::fs::remove_file(&node.port);
+        node.port.forget();
         self.emit("network.detached", data!({"node": node.name}));
         Ok(data!({"node": node.name}))
     }
@@ -1271,9 +1276,13 @@ impl SandboxProvider for NetworkSandbox {
         if let Some(old) = self.switch.take() {
             old.stop();
         }
-        let switch =
-            crate::switch::Switch::start(&self.switch_path(), net, self.emitter.clone())
-                .map_err(|error| refused(reason!("network.could_not_start", detail = error)))?;
+        let switch = crate::switch::Switch::start(
+            &self.switch_port(),
+            &Port::Path(self.room.join("uplink.sock")),
+            net,
+            self.emitter.clone(),
+        )
+        .map_err(|error| refused(reason!("network.could_not_start", detail = error)))?;
         self.switch = Some(switch);
         self.sync_lights();
         Ok(())
@@ -2482,7 +2491,7 @@ fn cidr_text(baseline: &Baseline) -> String {
 /// between the two. `switch`, `port` and `mac` are the cable (frames, as
 /// datagrams, from `port` to `switch`); the rest is what the guest will be
 /// told by DHCP, said up front so nobody has to boot it to find out.
-fn attachment(net: &Net, node: &Node, switch: &std::path::Path) -> Data {
+fn attachment(net: &Net, node: &Node, switch: &Port) -> Data {
     let served = net
         .nodes
         .iter()
@@ -2502,8 +2511,8 @@ fn attachment(net: &Net, node: &Node, switch: &std::path::Path) -> Data {
         "gateway": gateway.to_string(),
         "dns": [dns.to_string()],
         "mac": mac_text(node.mac),
-        "switch": switch.to_string_lossy(),
-        "port": node.port.to_string_lossy(),
+        "switch": switch.to_string(),
+        "port": node.port.to_string(),
     })
 }
 

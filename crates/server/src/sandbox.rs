@@ -1373,6 +1373,35 @@ impl ServerSandbox {
         }
     }
 
+    /// Read from the machine's lifecycle, never asked of the guest.
+    fn host_up(&self) -> bool {
+        self.peers
+            .state("host")
+            .is_some_and(|state| state.lifecycle == Lifecycle::Running)
+    }
+
+    /// A machine that is not running took its services with it. Said here
+    /// too, not only when the page lists them: until then the Server kept
+    /// calling them running and healthy. The pid stays, as in `running`: a
+    /// machine back from its saved state still has the process.
+    fn gone_with_machine(&mut self) {
+        if self.host_up() {
+            return;
+        }
+        let mut changed = false;
+        for at in 0..self.services.len() {
+            let each = &self.services[at];
+            if each.state == State::Running && !each.definition.is_internal() {
+                self.services[at].state = State::Stopped;
+                self.set_health(at, Wellness::Unknown);
+                changed = true;
+            }
+        }
+        if changed {
+            let _ = self.save();
+        }
+    }
+
     fn start_period(&self) -> Duration {
         self.own
             .start_period_s
@@ -1610,11 +1639,7 @@ impl ServerSandbox {
             return Ok(data!({"restarted": restarted}));
         }
         // A machine that is off cannot be asked: its services wait for it.
-        let host_up = self
-            .peers
-            .state("host")
-            .is_some_and(|state| state.lifecycle == Lifecycle::Running);
-        if !host_up {
+        if !self.host_up() {
             return Ok(data!({"restarted": restarted}));
         }
         for at in self.order() {
@@ -1890,6 +1915,12 @@ impl ServerSandbox {
                 return Ok(false);
             }
             return Ok(instance.state == State::Running && self.registered(&instance.name));
+        }
+        // Not asked while its machine is not running: a frozen one does not
+        // answer, and the page would lose every service to "no agent".
+        if !self.host_up() {
+            self.gone_with_machine();
+            return Ok(false);
         }
         // A pid on a stopped one is kept from a machine that went off: one
         // whose state was saved comes back with that process still in it.
@@ -2370,6 +2401,7 @@ impl SandboxProvider for ServerSandbox {
     /// transition and has to be cheap.
     fn observe(&mut self) -> Observation {
         self.revive();
+        self.gone_with_machine();
         let services: Vec<Value> = self
             .services
             .iter()

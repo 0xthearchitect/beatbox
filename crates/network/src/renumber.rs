@@ -434,7 +434,7 @@ mod tests {
                     name: name.into(),
                     address,
                     mac: node_mac(address),
-                    port: PathBuf::from(name),
+                    port: crate::frame::link::Port::Path(PathBuf::from(name)),
                     at: crate::topology::End {
                         device: 0,
                         port: u16::from(last),

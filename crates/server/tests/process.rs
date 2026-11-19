@@ -75,6 +75,12 @@ impl SandboxProvider for PretendHost {
     fn stop(&mut self) -> Result<(), ProviderError> {
         Ok(())
     }
+    fn pause(&mut self) -> Result<(), ProviderError> {
+        Ok(())
+    }
+    fn resume(&mut self) -> Result<(), ProviderError> {
+        Ok(())
+    }
     fn destroy(&mut self) -> Result<(), ProviderError> {
         Ok(())
     }
@@ -216,6 +222,7 @@ fn pretend_host(guest: &Shared) -> ProviderSpec {
             "filesystem.read",
             "filesystem.write",
             "network.interfaces",
+            "lifecycle.pause",
         ],
         Isolation::None,
         move |_, _, _| {
@@ -1753,6 +1760,51 @@ fn a_machine_gone_back_to_before_a_service_leaves_it_stopped_not_failed() {
     w.guest.lock().unwrap().running.clear();
     let died = ok(act(&w.server, "service.list", data!({})));
     assert_eq!(died["services"][0]["state"], "failed");
+}
+
+#[test]
+fn a_machine_that_is_off_takes_its_services_out_of_the_facts() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "http-static", "name": "site"}),
+    ));
+    ok(act(&w.server, "service.start", data!({"service": "site"})));
+    assert_eq!(
+        w.server.refresh().unwrap().facts["services"][0]["state"],
+        "running"
+    );
+    w.host.stop().unwrap();
+    let facts = w.server.refresh().unwrap().facts;
+    assert_eq!(facts["services"][0]["state"], "stopped");
+    assert_eq!(facts["services"][0]["health"], "unknown");
+    assert_eq!(facts["endpoints"], json!([]));
+    // Back from its saved state, the process is still there.
+    w.host.start().unwrap();
+    let listed = ok(act(&w.server, "service.list", Data::new()));
+    assert_eq!(listed["services"][0]["state"], "running");
+    assert!(w.log.matching("service.failed").is_empty());
+}
+
+#[test]
+fn a_frozen_machine_is_not_asked_and_its_services_are_still_listed() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "http-static", "name": "site"}),
+    ));
+    ok(act(&w.server, "service.start", data!({"service": "site"})));
+    w.host.pause().unwrap();
+    // Frozen, the agent does not answer at all.
+    w.guest.lock().unwrap().no_agent = true;
+    let listed = ok(act(&w.server, "service.list", Data::new()));
+    assert_eq!(listed["services"][0]["state"], "stopped");
+    w.guest.lock().unwrap().no_agent = false;
+    w.host.resume().unwrap();
+    let listed = ok(act(&w.server, "service.list", Data::new()));
+    assert_eq!(listed["services"][0]["state"], "running");
 }
 
 #[test]
