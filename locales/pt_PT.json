@@ -1396,7 +1396,6 @@
   "beatbox.network.no_such_rule": "Não há nenhuma regra de firewall {id}.",
   "beatbox.network.none": "Nenhuma",
   "beatbox.network.none.what": "Sem placa nenhuma. Nada para alcançar e ninguém que a alcance.",
-  "beatbox.network.not_on_this_system": "Por agora, as sandboxes de rede só correm em Linux.",
   "beatbox.network.overlap": "{cidr} partilha endereços com {other}, outra rede do router. Escolhe uma gama só dela.",
   "beatbox.network.path_too_long": "O caminho da pasta da rede é demasiado longo ({path}). Muda-a para um sítio mais curto.",
   "beatbox.network.port_taken": "Essa porta já tem algo ligado. Escolhe uma livre.",

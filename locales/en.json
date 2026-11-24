@@ -1396,7 +1396,6 @@
   "beatbox.network.no_such_rule": "There is no firewall rule {id}.",
   "beatbox.network.none": "None",
   "beatbox.network.none.what": "No card at all. Nothing to reach and nothing to be reached from.",
-  "beatbox.network.not_on_this_system": "Network sandboxes run on Linux for now.",
   "beatbox.network.overlap": "{cidr} shares addresses with {other}, another of the router's networks. Pick a range of its own.",
   "beatbox.network.path_too_long": "The network's folder path is too long ({path}). Move it somewhere shorter.",
   "beatbox.network.port_taken": "That port already has something plugged into it. Choose a free one.",

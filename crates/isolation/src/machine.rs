@@ -405,6 +405,25 @@ impl MachineSpec {
     }
 }
 
+/// QEMU's `-netdev` for a card on `cable`, with the id `net0`. The network
+/// writes both ends the same kind: a UNIX socket's path, or a UDP port on
+/// 127.0.0.1 where those do not exist, as `udp:127.0.0.1:<port>` (the
+/// network's `link::Port`; this crate may not see it, `deny.toml`).
+pub fn cable_netdev(cable: &Cable) -> String {
+    let end = |side: &str, text: &str| match text
+        .strip_prefix("udp:127.0.0.1:")
+        .and_then(|port| port.parse::<u16>().ok())
+    {
+        Some(port) => format!("{side}.type=inet,{side}.host=127.0.0.1,{side}.port={port}"),
+        None => format!("{side}.type=unix,{side}.path={}", endpoint::option(text)),
+    };
+    format!(
+        "dgram,id=net0,{},{}",
+        end("local", &cable.port),
+        end("remote", &cable.switch)
+    )
+}
+
 fn strings(parts: &[&str]) -> Vec<String> {
     parts.iter().map(|p| (*p).to_owned()).collect()
 }
@@ -422,11 +441,7 @@ fn network_args(spec: &MachineSpec) -> Vec<String> {
     if let Some(cable) = &spec.cable {
         return vec![
             "-netdev".into(),
-            format!(
-                "dgram,id=net0,local.type=unix,local.path={},remote.type=unix,remote.path={}",
-                endpoint::option(&cable.port),
-                endpoint::option(&cable.switch),
-            ),
+            cable_netdev(cable),
             "-device".into(),
             format!("e1000,netdev=net0,mac={}", cable.mac),
         ];

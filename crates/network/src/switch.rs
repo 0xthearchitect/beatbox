@@ -685,7 +685,6 @@ fn link_local6(address: Ipv6Addr) -> bool {
 }
 
 /// How often each router advertises its IPv6 networks unasked.
-#[cfg(unix)]
 const ANNOUNCE_EVERY: Duration = Duration::from_secs(30);
 
 /// How many IPv6 addresses one machine is remembered by: a system makes a
@@ -2105,10 +2104,13 @@ impl Net {
     /// Call node `index` `new`, everywhere it is named: its light machine,
     /// the cable's own traffic and counts, what it still speaks as, and the
     /// firewall rules written against its name (the ones in the settings
-    /// a reset goes back to too). Its socket moves with it.
+    /// a reset goes back to too). Its socket file moves with it; a UDP port
+    /// stays.
     pub fn rename_node(&mut self, index: usize, new: &str, room: &Path) {
         let old = std::mem::replace(&mut self.nodes[index].name, new.to_owned());
-        self.nodes[index].port = Port::Path(room.join(format!("{new}.sock")));
+        if let Port::Path(_) = self.nodes[index].port {
+            self.nodes[index].port = Port::Path(room.join(format!("{new}.sock")));
+        }
         if let Some(light) = self.lights.remove(&old) {
             self.lights.insert(new.to_owned(), light);
         }
@@ -3744,9 +3746,7 @@ pub fn parse_cidr(text: &str) -> Option<(Ipv4Addr, u8)> {
     }
 }
 
-/// A frame waiting for its moment. Only the switch's thread needs one, and
-/// the thread is Unix's (`running`); the tests hold the shaper on every system.
-#[cfg(any(unix, test))]
+/// A frame waiting for its moment, held by the switch's thread (`running`).
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Pending {
     at: Instant,
@@ -3760,7 +3760,6 @@ struct Pending {
 ///
 /// Jitter changes the delay, never the order: TCP reads a reordered frame
 /// as lost, and big downloads stall behind resends.
-#[cfg(any(unix, test))]
 struct Shaper {
     queue: std::collections::BinaryHeap<Reverse<Pending>>,
     busy: HashMap<Port, Instant>,
@@ -3770,7 +3769,6 @@ struct Shaper {
     seed: u64,
 }
 
-#[cfg(any(unix, test))]
 impl Shaper {
     fn new() -> Self {
         let seed = std::time::SystemTime::now()
@@ -3840,10 +3838,8 @@ impl Shaper {
     }
 }
 
-#[cfg(unix)]
 pub use running::Switch;
 
-#[cfg(unix)]
 mod running {
     use std::collections::HashMap;
     use std::io::ErrorKind;
@@ -3880,6 +3876,9 @@ mod running {
         ) -> std::io::Result<Self> {
             let socket = Socket::bind(port)?;
             let back = Socket::bind(uplink)?;
+            // Where they really listen: a UDP port 0 is the system's pick.
+            let port = socket.port()?;
+            let uplink = back.port()?;
             let (leave, leaving) = mpsc::channel();
             let switch_port = port.clone();
             let at = {
@@ -3901,12 +3900,17 @@ mod running {
                 .name(format!("beatbox-switch-{}", emit.sandbox_id()))
                 .spawn(move || carry(&socket, &net, &emit, &stopping, &leave, &from_uplink))?;
             Ok(Self {
-                port: port.clone(),
+                port,
                 stop,
                 thread: Some(thread),
                 uplink: Some(uplink_thread),
-                uplink_port: uplink.clone(),
+                uplink_port: uplink,
             })
+        }
+
+        /// Where the switch listens.
+        pub fn port(&self) -> &Port {
+            &self.port
         }
 
         /// Whether the thread is still carrying.

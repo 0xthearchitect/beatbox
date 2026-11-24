@@ -41,6 +41,10 @@ step() {
 step "build: cargo fmt --all --check" cargo fmt --all --check
 step "build: cargo clippy --workspace --all-targets --locked" cargo clippy --workspace --all-targets --locked
 step "build: cargo test --workspace --locked" cargo test --workspace --locked
+step "build: network tests over UDP cables" \
+  env BEATBOX_NETWORK_WIRE=udp cargo test -p beatbox-frame -p beatbox-network -p beatbox-server --locked
+step "build: a Server and a real QEMU over UDP cables" \
+  env BEATBOX_NETWORK_WIRE=udp cargo test -p beatbox-api --test server_internal --test qemu_cable --locked
 # build (windows-latest), as far as this machine can
 if rustup target list --installed 2>/dev/null | grep -qx x86_64-pc-windows-gnu; then
   step "build, Windows target (compile and lints only): cargo clippy --workspace --all-targets --locked --target x86_64-pc-windows-gnu" \

@@ -32,6 +32,16 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked
       - name: Tests
         run: cargo test --workspace --locked
+      - name: Network tests over UDP cables
+        if: runner.os == 'Linux'
+        run: cargo test -p beatbox-frame -p beatbox-network -p beatbox-server --locked
+        env:
+          BEATBOX_NETWORK_WIRE: udp
+      - name: A Server and a real QEMU over UDP cables
+        if: runner.os == 'Linux'
+        run: cargo test -p beatbox-api --test server_internal --test qemu_cable --locked
+        env:
+          BEATBOX_NETWORK_WIRE: udp
 
   dependencies:
     # Licences, advisories, sources, and the crate graph (deny.toml).

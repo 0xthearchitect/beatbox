@@ -176,8 +176,6 @@ fn test_one_recorded_lost_comes_back_stopped() {
 
 /// Records come back in file-name order. A Server whose record comes first
 /// found no network yet; its DNS still has to answer once both are back.
-/// Unix only: a network does not run on Windows yet.
-#[cfg(unix)]
 #[test]
 fn test_a_server_restored_before_its_network_still_publishes_its_names() {
     let room = Room::new("persist");

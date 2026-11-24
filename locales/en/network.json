@@ -12,7 +12,6 @@
   "beatbox.network.bad_traffic": "Traffic's {field} cannot be {value}.",
   "beatbox.network.path_too_long": "The network's folder path is too long ({path}). Move it somewhere shorter.",
   "beatbox.network.could_not_start": "The network could not start: {detail}",
-  "beatbox.network.not_on_this_system": "Network sandboxes run on Linux for now.",
   "beatbox.network.none": "None",
   "beatbox.network.isolated": "Isolated",
   "beatbox.network.nat": "NAT",

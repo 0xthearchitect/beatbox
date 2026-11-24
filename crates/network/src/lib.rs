@@ -24,7 +24,6 @@ pub use beatbox_frame as frame;
 pub mod capture;
 pub mod light;
 pub mod renumber;
-#[cfg(unix)]
 mod router;
 mod sandbox;
 pub mod switch;

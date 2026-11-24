@@ -1170,24 +1170,37 @@ impl ServerSandbox {
         // Named after the Server's id, never its name: an attach to a name
         // that exists hands back that node's cable, and a Server called
         // like a Host would take the Host's.
-        let outcome = self
-            .peers
-            .act(
-                "network",
-                "network.attach",
-                data!({"node": self.identity.id}),
-            )
-            .expect("network.attach is a valid name");
-        if !outcome.ok {
-            return Err(outcome
-                .reason
-                .unwrap_or_else(|| reason!("engine.unsupported", capability = "network.attach")));
+        let attach = |arguments: Data| {
+            let outcome = self
+                .peers
+                .act("network", "network.attach", arguments)
+                .expect("network.attach is a valid name");
+            if outcome.ok {
+                Ok(outcome.data)
+            } else {
+                Err(outcome.reason.unwrap_or_else(|| {
+                    reason!("engine.unsupported", capability = "network.attach")
+                }))
+            }
+        };
+        let start =
+            |cable: &Data| Node::start(cable, Arc::clone(&self.internals), &self.identity.id);
+        let cable = attach(data!({"node": self.identity.id}))?;
+        let node = match start(&cable) {
+            // A UDP port kept from the last run that another program took
+            // meanwhile: given back for a new one, at the same address.
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                let _ = self.peers.act(
+                    "network",
+                    "network.detach",
+                    data!({"node": self.identity.id}),
+                );
+                start(&attach(
+                    data!({"node": self.identity.id, "address": cable["address"]}),
+                )?)
+            }
+            started => started,
         }
-        let node = Node::start(
-            &outcome.data,
-            Arc::clone(&self.internals),
-            &self.identity.id,
-        )
         .map_err(|error| reason!("server.node_failed", detail = error))?;
         self.node = Some(node);
         Ok(())

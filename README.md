@@ -90,10 +90,6 @@ Get the installer for your system from
 | Any other Linux | `.AppImage` (install QEMU first) |
 | Windows 10 and 11 | `-setup.exe` |
 
-On Windows, BeatBox runs machines; networks and servers, and so the
-practice labs, are Linux only for now
-([#4](https://github.com/0xthearchitect/beatbox/issues/4)).
-
 The first time it opens, BeatBox checks your computer and offers to fix
 what is missing: QEMU, and access to hardware virtualisation (KVM on Linux,
 Windows Hypervisor Platform on Windows).

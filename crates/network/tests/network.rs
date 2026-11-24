@@ -4,42 +4,43 @@
 //! first -- DHCP, ARP for the gateway, a name, a ping -- in milliseconds and
 //! without QEMU. The same walk with real guests is
 //! `crates/api/examples/network_walk.rs`.
-#![cfg(unix)]
-
 use std::net::Ipv4Addr;
-use std::os::unix::net::UnixDatagram;
 use std::time::{Duration, Instant};
 
 use beatbox_engine::{
     ActionOutcome, Data, Recorder, RuntimeParts, Sandbox, SandboxConfig, SandboxRegistry,
     SandboxRuntime, data,
 };
+use beatbox_network::frame::link::{Port, Socket};
 use beatbox_network::frame::{self, GATEWAY_MAC, Mac};
 use beatbox_network::{CAPABILITIES, NetworkSandbox, actions};
 
 struct Guest {
-    socket: UnixDatagram,
-    switch: String,
+    socket: Socket,
+    switch: Port,
     mac: Mac,
     address: Ipv4Addr,
 }
 
 impl Guest {
     fn cable(network: &Sandbox, node: &str) -> Self {
-        let answer = ok(network
+        Self::plugged(&ok(network
             .act("network.attach", data!({"node": node}))
-            .unwrap());
-        let text = |key: &str| answer[key].as_str().unwrap().to_owned();
-        let socket = UnixDatagram::bind(text("port")).unwrap();
+            .unwrap()))
+    }
+
+    /// Bound where `network.attach` said this card's end is.
+    fn plugged(answer: &Data) -> Self {
+        let text = |key: &str| answer[key].as_str().unwrap();
+        let socket = Socket::bind(&Port::parse(text("port"))).unwrap();
         socket
             .set_read_timeout(Some(Duration::from_millis(400)))
             .unwrap();
-        let address: Ipv4Addr = text("address").parse().unwrap();
         Self {
             socket,
-            switch: text("switch"),
-            mac: frame::node_mac(address),
-            address,
+            switch: Port::parse(text("switch")),
+            mac: frame::parse_mac(text("mac")).unwrap(),
+            address: text("address").parse().unwrap(),
         }
     }
 
@@ -133,6 +134,24 @@ fn rand_ish() -> String {
         .as_nanos();
     let next = NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     format!("{nanos}-{next}")
+}
+
+/// The daemon running `lab` killed, not stopped: nothing stops the
+/// network, so what says where its switch was stays in the room. A UNIX
+/// switch is never dropped, since dropping it takes its socket file; a UDP
+/// one is, so its port is free again, as when its process dies.
+fn killed(runtime: SandboxRuntime, lab: Sandbox) {
+    if udp_wire() {
+        drop((runtime, lab));
+    } else {
+        std::mem::forget((runtime, lab));
+    }
+}
+
+/// Whether this run's cables are UDP ports: always where UNIX datagrams do
+/// not exist, and on Linux with `BEATBOX_NETWORK_WIRE=udp`.
+fn udp_wire() -> bool {
+    cfg!(not(unix)) || std::env::var("BEATBOX_NETWORK_WIRE").is_ok_and(|wire| wire == "udp")
 }
 
 fn names(log: &Recorder) -> Vec<String> {
@@ -364,8 +383,20 @@ fn a_machine_that_stops_reading_holds_up_nobody_else() {
     for _ in 0..150 {
         a.ip(paused.mac, paused.address, frame::ICMP, &big);
     }
-    a.ping(&b);
-    assert!(b.receive().is_some());
+    // Over UDP the burst can overflow the switch's own receive buffer (64 KiB
+    // on Windows) and lose a ping sent right behind it. What matters is
+    // that one gets through once the switch has read the burst.
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let reached = loop {
+        a.ping(&b);
+        if b.receive().is_some() {
+            break true;
+        }
+        if Instant::now() > deadline {
+            break false;
+        }
+    };
+    assert!(reached, "the others were held up");
     lab.stop().unwrap();
     lab.destroy().unwrap();
     assert!(!room.exists());
@@ -403,9 +434,7 @@ fn a_network_outlives_the_daemon_that_ran_it() {
         )
         .unwrap());
     let (identity, config) = (lab.identity(), lab.config());
-    // Killed, not stopped: nothing is dropped, so the switch's socket stays
-    // in the room the way it does after a SIGKILL.
-    std::mem::forget((runtime, lab));
+    killed(runtime, lab);
 
     let mut registry = SandboxRegistry::default();
     registry.register(NetworkSandbox::spec()).unwrap();
@@ -437,7 +466,7 @@ fn starting_a_network_whose_switch_runs_keeps_one_switch() {
     let a = Guest::cable(&lab, "alpha");
     let b = Guest::cable(&lab, "beta");
     let (identity, config) = (lab.identity(), lab.config());
-    std::mem::forget((runtime, lab));
+    killed(runtime, lab);
 
     let mut registry = SandboxRegistry::default();
     registry.register(NetworkSandbox::spec()).unwrap();
@@ -456,6 +485,37 @@ fn starting_a_network_whose_switch_runs_keeps_one_switch() {
     lab.stop().unwrap();
     lab.destroy().unwrap();
     assert!(!room.exists());
+}
+
+/// Over UDP, a light machine's port is kept for the next daemon; if another
+/// program took it meanwhile, the light machine starts on a new one.
+#[test]
+fn a_light_machine_whose_port_was_taken_meanwhile_takes_another() {
+    if !udp_wire() {
+        return;
+    }
+    let (runtime, lab, _log, room) = network(Data::new());
+    ok(lab.act("light.add", data!({"node": "pc1"})).unwrap());
+    let saved: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(room.join("net.json")).unwrap()).unwrap();
+    let kept = Port::parse(saved["nodes"][0]["port"].as_str().unwrap());
+    let (identity, config) = (lab.identity(), lab.config());
+    killed(runtime, lab);
+    let _other_program = Socket::bind(&kept).unwrap();
+
+    let mut registry = SandboxRegistry::default();
+    registry.register(NetworkSandbox::spec()).unwrap();
+    let again = SandboxRuntime::new(RuntimeParts {
+        registry,
+        ..RuntimeParts::default()
+    });
+    let lab = again
+        .restore(identity, config, beatbox_engine::Lifecycle::Running, None)
+        .unwrap();
+    lab.refresh().unwrap();
+    assert!(!run(&lab, "pc1", "ipconfig").is_empty());
+    lab.stop().unwrap();
+    lab.destroy().unwrap();
 }
 
 #[test]
@@ -664,7 +724,7 @@ fn a_moved_network_is_found_moved_by_the_daemon_that_follows() {
     lab.reconfigure(lab.config().with_settings(settings))
         .unwrap();
     let (identity, config) = (lab.identity(), lab.config());
-    std::mem::forget((runtime, lab));
+    killed(runtime, lab);
 
     let mut registry = SandboxRegistry::default();
     registry.register(NetworkSandbox::spec()).unwrap();
@@ -724,17 +784,7 @@ fn a_switch_with_two_vlans_is_built_through_the_api_and_kept() {
         let answer = ok(lab
             .act("network.attach", data!({"node": node, "at": at}))
             .unwrap());
-        let socket = UnixDatagram::bind(answer["port"].as_str().unwrap()).unwrap();
-        socket
-            .set_read_timeout(Some(Duration::from_millis(400)))
-            .unwrap();
-        let address: Ipv4Addr = answer["address"].as_str().unwrap().parse().unwrap();
-        Guest {
-            socket,
-            switch: answer["switch"].as_str().unwrap().to_owned(),
-            mac: frame::node_mac(address),
-            address,
-        }
+        Guest::plugged(&answer)
     };
     let b = place("b", "sw1:1");
     let c = place("c", "sw1:2");
@@ -828,7 +878,7 @@ fn a_switch_with_two_vlans_is_built_through_the_api_and_kept() {
 
     // A daemon that follows finds the same topology.
     let (identity, config) = (lab.identity(), lab.config());
-    std::mem::forget((runtime, lab));
+    killed(runtime, lab);
     let mut registry = SandboxRegistry::default();
     registry.register(NetworkSandbox::spec()).unwrap();
     let again = SandboxRuntime::new(RuntimeParts {
@@ -879,20 +929,7 @@ fn two_vlans_with_networks_on_the_router_reach_each_other_through_it() {
         let answer = ok(lab
             .act("network.attach", data!({"node": node, "at": at}))
             .unwrap());
-        let socket = UnixDatagram::bind(answer["port"].as_str().unwrap()).unwrap();
-        socket
-            .set_read_timeout(Some(Duration::from_millis(400)))
-            .unwrap();
-        let address: Ipv4Addr = answer["address"].as_str().unwrap().parse().unwrap();
-        (
-            Guest {
-                socket,
-                switch: answer["switch"].as_str().unwrap().to_owned(),
-                mac: frame::parse_mac(answer["mac"].as_str().unwrap()).unwrap(),
-                address,
-            },
-            answer,
-        )
+        (Guest::plugged(&answer), answer)
     };
     // Each is given an address in its own VLAN's network, with its gateway.
     let (b, said) = place("b", "sw1:1");
@@ -1013,7 +1050,7 @@ fn two_vlans_with_networks_on_the_router_reach_each_other_through_it() {
 
     // A daemon that follows finds the networks.
     let (identity, config) = (lab.identity(), lab.config());
-    std::mem::forget((runtime, lab));
+    killed(runtime, lab);
     let mut registry = SandboxRegistry::default();
     registry.register(NetworkSandbox::spec()).unwrap();
     let again = SandboxRuntime::new(RuntimeParts {
@@ -1064,19 +1101,7 @@ fn a_second_router_with_its_own_network_is_reached_by_routes() {
     );
     let place = |node: &str, at: &str| {
         let answer = act("network.attach", data!({"node": node, "at": at}));
-        let socket = UnixDatagram::bind(answer["port"].as_str().unwrap()).unwrap();
-        socket
-            .set_read_timeout(Some(Duration::from_millis(400)))
-            .unwrap();
-        (
-            Guest {
-                socket,
-                switch: answer["switch"].as_str().unwrap().to_owned(),
-                mac: frame::parse_mac(answer["mac"].as_str().unwrap()).unwrap(),
-                address: answer["address"].as_str().unwrap().parse().unwrap(),
-            },
-            answer,
-        )
+        (Guest::plugged(&answer), answer)
     };
     let (a, _) = place("a", "gw");
     let (c, said) = place("c", "r2");
@@ -1107,7 +1132,7 @@ fn a_second_router_with_its_own_network_is_reached_by_routes() {
 
     // A daemon that follows finds both routers as they were.
     let (identity, config) = (lab.identity(), lab.config());
-    std::mem::forget((runtime, lab));
+    killed(runtime, lab);
     let mut registry = SandboxRegistry::default();
     registry.register(NetworkSandbox::spec()).unwrap();
     let again = SandboxRuntime::new(RuntimeParts {

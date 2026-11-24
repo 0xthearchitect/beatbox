@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.1.4 (2026-11-24)
+
+Networks, servers and the practice labs on Windows.
+
+### Networks
+
+- Networks, servers and the practice labs work on Windows too.
 
 ### Servers
 

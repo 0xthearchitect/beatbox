@@ -45,11 +45,9 @@ fn field<'a>(answer: &'a Data, key: &str) -> std::io::Result<&'a str> {
     })
 }
 
-#[cfg(unix)]
-pub use unix::Node;
+pub use running::Node;
 
-#[cfg(unix)]
-mod unix {
+mod running {
     use std::sync::PoisonError;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread::JoinHandle;
@@ -201,35 +199,7 @@ mod unix {
     }
 }
 
-/// Where UNIX datagrams do not exist, neither does a node: the network
-/// refuses there first.
-#[cfg(not(unix))]
-pub struct Node {
-    /// Never set.
-    pub address: Ipv4Addr,
-}
-
-#[cfg(not(unix))]
-impl Node {
-    /// Always refused.
-    pub fn start(answer: &Data, _services: Shared, _name: &str) -> std::io::Result<Self> {
-        let _ = (field(answer, "port"), mac(""));
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "a server's node needs UNIX datagrams",
-        ))
-    }
-
-    /// Never.
-    pub fn alive(&self) -> bool {
-        false
-    }
-
-    /// Nothing to stop.
-    pub fn stop(self) {}
-}
-
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     use std::time::Duration;
 
@@ -237,6 +207,7 @@ mod tests {
 
     use super::*;
 
+    #[cfg(unix)]
     #[test]
     fn it_stops_even_when_its_socket_file_is_already_gone() {
         let room = std::env::temp_dir().join(format!("bbx-node-{}", std::process::id()));

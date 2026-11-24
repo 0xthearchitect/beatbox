@@ -147,6 +147,17 @@ mod command_tests {
         ));
         assert!(command.contains("e1000,netdev=net0,mac=02:bb:0a:0a:0a:0a"));
         assert!(!command.contains("user,"));
+        let udp = MachineSpec {
+            cable: Some(beatbox_isolation::machine::Cable {
+                switch: "udp:127.0.0.1:20001".into(),
+                port: "udp:127.0.0.1:20002".into(),
+                mac: "02:bb:0a:0a:0a:0a".into(),
+            }),
+            ..spec.clone()
+        };
+        assert!(build_command(&udp, &qemu(), "u").unwrap().join(" ").contains(
+            "dgram,id=net0,local.type=inet,local.host=127.0.0.1,local.port=20002,remote.type=inet,remote.host=127.0.0.1,remote.port=20001"
+        ));
         let forwarding = MachineSpec {
             forwarded_ports: vec![(2222, 22)],
             ..spec.clone()

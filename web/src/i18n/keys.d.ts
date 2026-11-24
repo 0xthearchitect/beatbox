@@ -1397,7 +1397,6 @@ export type Key =
   | "beatbox.network.no_such_rule"
   | "beatbox.network.none"
   | "beatbox.network.none.what"
-  | "beatbox.network.not_on_this_system"
   | "beatbox.network.overlap"
   | "beatbox.network.path_too_long"
   | "beatbox.network.port_taken"

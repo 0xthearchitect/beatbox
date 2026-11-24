@@ -12,7 +12,6 @@
   "beatbox.network.bad_traffic": "O campo {field} do tráfego não pode ser {value}.",
   "beatbox.network.path_too_long": "O caminho da pasta da rede é demasiado longo ({path}). Muda-a para um sítio mais curto.",
   "beatbox.network.could_not_start": "A rede não conseguiu arrancar: {detail}",
-  "beatbox.network.not_on_this_system": "Por agora, as sandboxes de rede só correm em Linux.",
   "beatbox.network.none": "Nenhuma",
   "beatbox.network.isolated": "Isolada",
   "beatbox.network.nat": "NAT",

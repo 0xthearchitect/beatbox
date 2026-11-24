@@ -118,8 +118,7 @@ pub struct Start {
     pub conf: LightConf,
 }
 
-/// The running part: a thread and a socket, which only Unix has here.
-#[cfg(unix)]
+/// The running part: a thread and a socket.
 mod machine {
     use std::io::ErrorKind;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -1348,5 +1347,4 @@ mod machine {
     }
 }
 
-#[cfg(unix)]
 pub use machine::Light;

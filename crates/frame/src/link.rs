@@ -11,10 +11,14 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 #[cfg(unix)]
 use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 /// How a UDP end is written: `udp:127.0.0.1:<port>`.
 const UDP_PREFIX: &str = "udp:127.0.0.1:";
+
+/// How many ports [`Port::free_udp`] hands out from.
+const FREE_UDP_SPAN: u32 = 10_000;
 
 /// Where one end of a cable listens.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -41,6 +45,29 @@ impl Port {
         if let Self::Path(path) = self {
             let _ = std::fs::remove_file(path);
         }
+    }
+
+    /// A UDP port nobody holds right now, for an end bound later (by QEMU,
+    /// or when a light PC starts). Nothing holds it until then, so another
+    /// program can take it in between.
+    ///
+    /// Handed out in turn from 20000-29999, below the ports the system picks
+    /// itself (32768 and up on Linux, 49152 on Windows): the system's pick
+    /// can hand two cables of this process the same port before either is
+    /// bound. The process id spreads two BeatBoxes apart.
+    pub fn free_udp() -> io::Result<Self> {
+        static NEXT: AtomicU32 = AtomicU32::new(0);
+        for _ in 0..FREE_UDP_SPAN {
+            let turn = NEXT.fetch_add(1, Ordering::Relaxed);
+            let port = 20_000 + (std::process::id().wrapping_add(turn) % FREE_UDP_SPAN) as u16;
+            if UdpSocket::bind(Self::udp(port)).is_ok() {
+                return Ok(Self::Udp(port));
+            }
+        }
+        Err(io::Error::new(
+            io::ErrorKind::AddrInUse,
+            "no free UDP port on 127.0.0.1",
+        ))
     }
 
     fn udp(port: u16) -> SocketAddr {
@@ -228,6 +255,13 @@ mod tests {
         // Only this computer, and only a number: anything else is a path.
         assert!(matches!(Port::parse("udp:10.0.0.1:47000"), Port::Path(_)));
         assert!(matches!(Port::parse("udp:127.0.0.1:x"), Port::Path(_)));
+    }
+
+    #[test]
+    fn free_ports_are_never_handed_out_twice() {
+        let ports: std::collections::BTreeSet<Port> =
+            (0..200).map(|_| Port::free_udp().unwrap()).collect();
+        assert_eq!(ports.len(), 200);
     }
 
     #[test]

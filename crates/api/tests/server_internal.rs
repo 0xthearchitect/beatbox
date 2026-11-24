@@ -4,10 +4,7 @@
 //! The Server takes a cable like any guest, answers ARP and UDP, and is
 //! policed by the switch like any node. Lives here because only the API may
 //! see both the network and server crates (`deny.toml`).
-#![cfg(unix)]
-
 use std::net::Ipv4Addr;
-use std::os::unix::net::UnixDatagram;
 use std::time::{Duration, Instant};
 
 use beatbox_engine::{
@@ -15,6 +12,7 @@ use beatbox_engine::{
     SandboxRuntime, data,
 };
 use beatbox_network::NetworkSandbox;
+use beatbox_network::frame::link::{Port, Socket};
 use beatbox_network::frame::{self, BROADCAST, Mac};
 use beatbox_server::ServerSandbox;
 use serde_json::json;
@@ -26,8 +24,8 @@ fn ok(outcome: ActionOutcome) -> Data {
 
 /// A guest that is nothing but its end of a cable.
 struct Guest {
-    socket: UnixDatagram,
-    switch: String,
+    socket: Socket,
+    switch: Port,
     mac: Mac,
     address: Ipv4Addr,
 }
@@ -38,14 +36,14 @@ impl Guest {
             .act("network.attach", data!({"node": node}))
             .unwrap());
         let text = |key: &str| answer[key].as_str().unwrap().to_owned();
-        let socket = UnixDatagram::bind(text("port")).unwrap();
+        let socket = Socket::bind(&Port::parse(&text("port"))).unwrap();
         socket
             .set_read_timeout(Some(Duration::from_millis(300)))
             .unwrap();
         let address: Ipv4Addr = text("address").parse().unwrap();
         Self {
             socket,
-            switch: text("switch"),
+            switch: Port::parse(&text("switch")),
             mac: frame::node_mac(address),
             address,
         }

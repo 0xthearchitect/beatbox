@@ -571,21 +571,16 @@ mod tests {
         leave: Option<Sender<Leaving>>,
         switch: Socket,
         thread: Option<std::thread::JoinHandle<()>>,
-        room: std::path::PathBuf,
     }
 
     impl Running {
-        fn start(name: &str) -> Self {
-            let room =
-                std::env::temp_dir().join(format!("bb-router-{name}-{}", std::process::id()));
-            let _ = std::fs::remove_dir_all(&room);
-            std::fs::create_dir_all(&room).unwrap();
-            let switch_port = Port::Path(room.join("s.sock"));
-            let switch = Socket::bind(&switch_port).unwrap();
+        fn start() -> Self {
+            let switch = Socket::bind(&Port::Udp(0)).unwrap();
+            let switch_port = switch.port().unwrap();
             switch
                 .set_read_timeout(Some(Duration::from_millis(20)))
                 .unwrap();
-            let back = Socket::bind(&Port::Path(room.join("u.sock"))).unwrap();
+            let back = Socket::bind(&Port::Udp(0)).unwrap();
             let (leave, leaving) = mpsc::channel();
             let thread =
                 std::thread::spawn(move || carry_out(&leaving, &back, &switch_port, None, AT));
@@ -593,7 +588,6 @@ mod tests {
                 leave: Some(leave),
                 switch,
                 thread: Some(thread),
-                room,
             }
         }
 
@@ -629,13 +623,12 @@ mod tests {
             if let Some(thread) = self.thread.take() {
                 let _ = thread.join();
             }
-            let _ = std::fs::remove_dir_all(&self.room);
         }
     }
 
     #[test]
     fn udp_goes_out_and_the_answer_comes_back_to_the_switch() {
-        let router = Running::start("udp");
+        let router = Running::start();
         // Out there: an echo on this computer. The router itself does not
         // judge where it may go -- `Net` did, before it was ever sent.
         let far = UdpSocket::bind("127.0.0.1:0").unwrap();
@@ -732,7 +725,7 @@ mod tests {
 
     #[test]
     fn a_guest_talks_tcp_to_out_there_through_the_router_and_hangs_up() {
-        let router = Running::start("tcp");
+        let router = Running::start();
         let far = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let SocketAddr::V4(far_address) = far.local_addr().unwrap() else {
             unreachable!()
@@ -774,7 +767,7 @@ mod tests {
 
     #[test]
     fn a_guest_in_another_of_the_routers_networks_reaches_out_there_too() {
-        let router = Running::start("vlan");
+        let router = Running::start();
         let far = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let SocketAddr::V4(far_address) = far.local_addr().unwrap() else {
             unreachable!()
@@ -806,7 +799,7 @@ mod tests {
 
     #[test]
     fn a_far_end_that_refuses_answers_the_guest_with_a_reset() {
-        let router = Running::start("refused");
+        let router = Running::start();
         // A port nothing listens on: bound, then let go.
         let gone = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let SocketAddr::V4(far_address) = gone.local_addr().unwrap() else {

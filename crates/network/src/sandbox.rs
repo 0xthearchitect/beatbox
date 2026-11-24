@@ -1,7 +1,6 @@
 //! A network, as a sandbox: the same nine methods a host is driven through.
 
 use std::collections::BTreeMap;
-#[cfg(unix)]
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
@@ -552,6 +551,11 @@ fn default_room(id: &str) -> PathBuf {
 /// A UNIX socket's path has to fit in `sun_path`.
 const PATH_MAX: usize = 107;
 
+/// In the room while a UDP switch runs: its port. A daemon that went away
+/// without stopping the network leaves it, and the next one binds the same
+/// port, where the guests still send.
+const UDP_SWITCH: &str = "switch.port";
+
 /// A network: a switch in user space, and whatever is cabled to it.
 ///
 /// Configured through `settings`:
@@ -570,22 +574,20 @@ pub struct NetworkSandbox {
     config: SandboxConfig,
     emitter: Emitter,
     room: PathBuf,
+    /// Where the switch listens. Its kind is the network's wire: every cable
+    /// is a socket file in `room`, or every one a UDP port on 127.0.0.1.
+    switch_at: Port,
     net: Option<Arc<Mutex<Net>>>,
-    #[cfg(unix)]
     switch: Option<crate::switch::Switch>,
     /// The light machines running while the switch does.
-    #[cfg(unix)]
     lights: BTreeMap<String, crate::light::Light>,
     /// Terminal lines handed to light machines, by job: who runs it, from
     /// which address, and where its answer will come.
-    #[cfg(unix)]
     jobs: BTreeMap<u64, Job>,
-    #[cfg(unix)]
     next_job: u64,
 }
 
 /// A terminal line a light machine is running (`light.start`).
-#[cfg(unix)]
 struct Job {
     from: Ipv4Addr,
     since: std::time::Instant,
@@ -614,19 +616,29 @@ impl NetworkSandbox {
             .and_then(Value::as_str)
             .filter(|w| !w.is_empty())
             .map_or_else(|| default_room(&identity.id), PathBuf::from);
+        // UDP where UNIX datagrams do not exist, and on Linux when asked for,
+        // so the UDP wire is tested here too. A port 0 is picked when the
+        // switch binds.
+        let switch_at =
+            if cfg!(unix) && std::env::var("BEATBOX_NETWORK_WIRE").as_deref() != Ok("udp") {
+                Port::Path(room.join("switch.sock"))
+            } else {
+                std::fs::read_to_string(room.join(UDP_SWITCH))
+                    .ok()
+                    .map(|text| Port::parse(text.trim()))
+                    .filter(|port| matches!(port, Port::Udp(_)))
+                    .unwrap_or_else(|| Port::free_udp().unwrap_or(Port::Udp(0)))
+            };
         Self {
             identity,
             config,
             emitter,
             room,
+            switch_at,
             net: None,
-            #[cfg(unix)]
             switch: None,
-            #[cfg(unix)]
             lights: BTreeMap::new(),
-            #[cfg(unix)]
             jobs: BTreeMap::new(),
-            #[cfg(unix)]
             next_job: 0,
         }
     }
@@ -814,11 +826,20 @@ impl NetworkSandbox {
                 {
                     net.reserved.insert(name.to_owned());
                 }
+                // A UDP port is kept: a running guest still sends from it.
+                let port = match node["port"].as_str().map(Port::parse) {
+                    Some(port @ Port::Udp(_))
+                        if !imported && matches!(self.switch_at, Port::Udp(_)) =>
+                    {
+                        port
+                    }
+                    _ => self.node_port(&net, name)?,
+                };
                 net.nodes.push(Node {
                     name: name.to_owned(),
                     address,
                     mac,
-                    port: Port::Path(self.room.join(format!("{name}.sock"))),
+                    port,
                     at,
                 });
             }
@@ -861,6 +882,15 @@ impl NetworkSandbox {
             "captures".into(),
             facts(&net, &self.room)["captures"].take(),
         );
+        // Only here, not in an export or a save point: a port belongs to
+        // this computer and this run of the guests.
+        if let Some(nodes) = state.get_mut("nodes").and_then(Value::as_array_mut) {
+            for (saved, node) in nodes.iter_mut().zip(&net.nodes) {
+                if let Port::Udp(_) = node.port {
+                    saved["port"] = json!(node.port.to_string());
+                }
+            }
+        }
         drop(net);
         if let Err(error) = std::fs::write(self.state_path(), Value::Object(state).to_string()) {
             log::warn!("{} could not write its state: {error}", self.identity.id);
@@ -875,16 +905,35 @@ impl NetworkSandbox {
         Ok(net.lock().unwrap_or_else(PoisonError::into_inner))
     }
 
-    fn switch_path(&self) -> PathBuf {
-        self.room.join("switch.sock")
+    fn switch_port(&self) -> Port {
+        self.switch_at.clone()
     }
 
-    fn switch_port(&self) -> Port {
-        Port::Path(self.switch_path())
+    /// Where node `name`'s cable ends: its file in the room, or a UDP port
+    /// no cable of `net` holds.
+    fn node_port(&self, net: &Net, name: &str) -> Result<Port, ProviderError> {
+        if let Port::Path(_) = self.switch_at {
+            let path = self.room.join(format!("{name}.sock"));
+            if path.as_os_str().len() > PATH_MAX {
+                return Err(refused(reason!(
+                    "network.path_too_long",
+                    path = path.display()
+                )));
+            }
+            return Ok(Port::Path(path));
+        }
+        // A kept port is free while its guest is off; the next one handed
+        // out may be it.
+        loop {
+            let port = Port::free_udp()
+                .map_err(|error| refused(reason!("network.could_not_start", detail = error)))?;
+            if port != self.switch_at && net.nodes.iter().all(|node| node.port != port) {
+                return Ok(port);
+            }
+        }
     }
 
     /// What light machine `name` starts from now, if it is one.
-    #[cfg(unix)]
     fn light_start(&self, net: &Net, name: &str) -> Option<crate::light::Start> {
         let conf = net.lights.get(name)?.clone();
         let index = net.nodes.iter().position(|n| n.name == name)?;
@@ -909,128 +958,117 @@ impl NetworkSandbox {
     /// The light machines as the network says they are: running while its
     /// switch is, each started again when what it starts from changed.
     fn sync_lights(&mut self) {
-        #[cfg(unix)]
-        {
-            let wanted: BTreeMap<String, crate::light::Start> = match (&self.switch, self.net()) {
-                (Some(_), Ok(net)) => net
-                    .lights
-                    .keys()
-                    .filter_map(|name| Some((name.clone(), self.light_start(&net, name)?)))
-                    .collect(),
-                _ => BTreeMap::new(),
-            };
-            let stale: Vec<String> = self
+        let wanted: BTreeMap<String, crate::light::Start> = match (&self.switch, self.net()) {
+            (Some(_), Ok(net)) => net
                 .lights
-                .iter()
-                .filter(|(name, light)| wanted.get(*name) != Some(&light.start))
-                .map(|(name, _)| name.clone())
-                .collect();
-            for name in stale {
-                if let Some(light) = self.lights.remove(&name) {
-                    light.stop();
-                }
-            }
-            for (name, start) in wanted {
-                if self.lights.contains_key(&name) {
-                    continue;
-                }
-                match crate::light::Light::spawn(start) {
-                    Ok(light) => {
-                        self.lights.insert(name, light);
-                    }
-                    Err(error) => {
-                        log::warn!("{} could not start {name}: {error}", self.identity.id)
-                    }
-                }
+                .keys()
+                .filter_map(|name| Some((name.clone(), self.light_start(&net, name)?)))
+                .collect(),
+            _ => BTreeMap::new(),
+        };
+        let stale: Vec<String> = self
+            .lights
+            .iter()
+            .filter(|(name, light)| wanted.get(*name) != Some(&light.start))
+            .map(|(name, _)| name.clone())
+            .collect();
+        for name in stale {
+            if let Some(light) = self.lights.remove(&name) {
+                light.stop();
             }
         }
+        for (name, start) in wanted {
+            if self.lights.contains_key(&name) {
+                continue;
+            }
+            let started = match crate::light::Light::spawn(start) {
+                // A UDP port kept from the last run that another program
+                // took meanwhile: a new one, which nothing outside holds.
+                Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => self
+                    .new_port(&name)
+                    .and_then(|start| crate::light::Light::spawn(start).ok()),
+                started => started
+                    .map_err(|error| {
+                        log::warn!("{} could not start {name}: {error}", self.identity.id)
+                    })
+                    .ok(),
+            };
+            if let Some(light) = started {
+                self.lights.insert(name, light);
+            }
+        }
+    }
+
+    /// Light machine `name` moved to a fresh port, and what it starts from
+    /// there.
+    fn new_port(&self, name: &str) -> Option<crate::light::Start> {
+        let mut net = self.net().ok()?;
+        let port = self.node_port(&net, name).ok()?;
+        net.nodes.iter_mut().find(|node| node.name == name)?.port = port;
+        self.light_start(&net, name)
     }
 
     /// One line in light machine `name`'s terminal, and what it said back.
     /// When nobody answered, the network says why it thinks so: a firewall
     /// rule that refused it, or nothing at that address.
     fn run_light(&mut self, name: &str, line: &str) -> Result<Data, ProviderError> {
-        #[cfg(unix)]
-        {
-            let Some(light) = self.lights.get(name) else {
-                return Err(refused(reason!("network.light_off", node = name)));
-            };
-            let lines = light.run(line, std::time::Duration::from_secs(15));
-            let from = light.start.address;
-            let lines = self.explain(lines, from)?;
-            Ok(data!({"node": name, "lines": lines}))
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = line;
-            Err(refused(reason!("network.light_off", node = name)))
-        }
+        let Some(light) = self.lights.get(name) else {
+            return Err(refused(reason!("network.light_off", node = name)));
+        };
+        let lines = light.run(line, std::time::Duration::from_secs(15));
+        let from = light.start.address;
+        let lines = self.explain(lines, from)?;
+        Ok(data!({"node": name, "lines": lines}))
     }
 
     /// Start one terminal line on light machine `name`; its answer is
     /// fetched with `light.result`, so the network is free meanwhile.
     fn start_light(&mut self, name: &str, line: &str) -> Result<Data, ProviderError> {
-        #[cfg(unix)]
-        {
-            let answer = self
-                .lights
-                .get(name)
-                .and_then(|light| Some((light.ask(line)?, light.start.address)));
-            let Some((answer, from)) = answer else {
-                return Err(refused(reason!("network.light_off", node = name)));
-            };
-            // Answers nobody came back for are let go after a while.
-            self.jobs
-                .retain(|_, job| job.since.elapsed() < std::time::Duration::from_secs(120));
-            self.next_job += 1;
-            let job = self.next_job;
-            self.jobs.insert(
-                job,
-                Job {
-                    from,
-                    since: std::time::Instant::now(),
-                    answer,
-                },
-            );
-            Ok(data!({"node": name, "job": job}))
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = line;
-            Err(refused(reason!("network.light_off", node = name)))
-        }
+        let answer = self
+            .lights
+            .get(name)
+            .and_then(|light| Some((light.ask(line)?, light.start.address)));
+        let Some((answer, from)) = answer else {
+            return Err(refused(reason!("network.light_off", node = name)));
+        };
+        // Answers nobody came back for are let go after a while.
+        self.jobs
+            .retain(|_, job| job.since.elapsed() < std::time::Duration::from_secs(120));
+        self.next_job += 1;
+        let job = self.next_job;
+        self.jobs.insert(
+            job,
+            Job {
+                from,
+                since: std::time::Instant::now(),
+                answer,
+            },
+        );
+        Ok(data!({"node": name, "job": job}))
     }
 
     /// The answer to a `light.start`, when there is one.
     fn light_result(&mut self, job: u64) -> Result<Data, ProviderError> {
-        #[cfg(unix)]
-        {
-            use std::sync::mpsc::TryRecvError;
-            let Some(waiting) = self.jobs.get(&job) else {
-                return Err(refused(reason!("network.no_such_job", job = job)));
-            };
-            let lines = match waiting.answer.try_recv() {
-                Ok(lines) => lines,
-                Err(TryRecvError::Empty) => {
-                    return Ok(data!({"job": job, "done": false, "lines": []}));
-                }
-                Err(TryRecvError::Disconnected) => vec![json!({"code": "off"})],
-            };
-            let from = waiting.from;
-            self.jobs.remove(&job);
-            let lines = self.explain(lines, from)?;
-            Ok(data!({"job": job, "done": true, "lines": lines}))
-        }
-        #[cfg(not(unix))]
-        {
-            Err(refused(reason!("network.no_such_job", job = job)))
-        }
+        use std::sync::mpsc::TryRecvError;
+        let Some(waiting) = self.jobs.get(&job) else {
+            return Err(refused(reason!("network.no_such_job", job = job)));
+        };
+        let lines = match waiting.answer.try_recv() {
+            Ok(lines) => lines,
+            Err(TryRecvError::Empty) => {
+                return Ok(data!({"job": job, "done": false, "lines": []}));
+            }
+            Err(TryRecvError::Disconnected) => vec![json!({"code": "off"})],
+        };
+        let from = waiting.from;
+        self.jobs.remove(&job);
+        let lines = self.explain(lines, from)?;
+        Ok(data!({"job": job, "done": true, "lines": lines}))
     }
 
     /// A light machine's answer, with the network's word on why nobody
     /// answered when nobody did: a firewall rule, nobody at that address, or
     /// let through and silent.
-    #[cfg(unix)]
     fn explain(&self, mut lines: Vec<Value>, from: Ipv4Addr) -> Result<Vec<Value>, ProviderError> {
         {
             // Some of many tries cut by a rule's limit: which rule, and how much.
@@ -1147,7 +1185,6 @@ impl NetworkSandbox {
             return Err(refused(reason!("network.bad_node", node = name)));
         }
         let switch = self.switch_port();
-        let room = self.room.clone();
         let mut net = self.net()?;
         if let Some(node) = net.node(&name) {
             return Ok(attachment(&net, node, &switch));
@@ -1178,13 +1215,7 @@ impl NetworkSandbox {
                 .free_address()
                 .ok_or_else(|| refused(reason!("network.full", cidr = cidr_text(&net.live))))?,
         };
-        let port = room.join(format!("{name}.sock"));
-        if port.as_os_str().len() > PATH_MAX {
-            return Err(refused(reason!(
-                "network.path_too_long",
-                path = port.display()
-            )));
-        }
+        let port = self.node_port(&net, &name)?;
         let at = match at.as_deref() {
             Some(text) => {
                 let at = port_named(&net, text)?;
@@ -1201,7 +1232,7 @@ impl NetworkSandbox {
             name,
             address,
             mac: node_mac(address),
-            port: Port::Path(port),
+            port,
             at,
         };
         net.nodes.push(node);
@@ -1250,17 +1281,18 @@ impl SandboxProvider for NetworkSandbox {
         let baseline = baseline(&self.config.settings).map_err(refused)?;
         make_room(&self.room)
             .map_err(|error| refused(reason!("network.could_not_start", detail = error)))?;
-        if self.switch_path().as_os_str().len() > PATH_MAX {
+        if let Port::Path(path) = &self.switch_at
+            && path.as_os_str().len() > PATH_MAX
+        {
             return Err(refused(reason!(
                 "network.path_too_long",
-                path = self.switch_path().display()
+                path = path.display()
             )));
         }
         self.net = Some(Arc::new(Mutex::new(Net::new(baseline))));
         Ok(())
     }
 
-    #[cfg(unix)]
     fn start(&mut self) -> Result<(), ProviderError> {
         self.load()?;
         let net = Arc::clone(
@@ -1276,35 +1308,36 @@ impl SandboxProvider for NetworkSandbox {
         if let Some(old) = self.switch.take() {
             old.stop();
         }
-        let switch = crate::switch::Switch::start(
-            &self.switch_port(),
-            &Port::Path(self.room.join("uplink.sock")),
-            net,
-            self.emitter.clone(),
-        )
-        .map_err(|error| refused(reason!("network.could_not_start", detail = error)))?;
+        let uplink = match self.switch_at {
+            Port::Path(_) => Port::Path(self.room.join("uplink.sock")),
+            Port::Udp(_) => Port::Udp(0),
+        };
+        let switch =
+            crate::switch::Switch::start(&self.switch_port(), &uplink, net, self.emitter.clone())
+                .map_err(|error| refused(reason!("network.could_not_start", detail = error)))?;
+        self.switch_at = switch.port().clone();
         self.switch = Some(switch);
+        if let Port::Udp(_) = self.switch_at
+            && let Err(error) =
+                std::fs::write(self.room.join(UDP_SWITCH), self.switch_at.to_string())
+        {
+            log::warn!(
+                "{} could not note its switch's port: {error}",
+                self.identity.id
+            );
+        }
         self.sync_lights();
         Ok(())
     }
 
-    // ponytail: QEMU for Windows has no AF_UNIX datagrams; its `-netdev dgram`
-    // takes UDP on 127.0.0.1, which is where a Windows switch would listen.
-    #[cfg(not(unix))]
-    fn start(&mut self) -> Result<(), ProviderError> {
-        Err(refused(reason!("network.not_on_this_system")))
-    }
-
     fn stop(&mut self) -> Result<(), ProviderError> {
-        #[cfg(unix)]
-        {
-            for (_, light) in std::mem::take(&mut self.lights) {
-                light.stop();
-            }
-            if let Some(switch) = self.switch.take() {
-                switch.stop();
-            }
+        for (_, light) in std::mem::take(&mut self.lights) {
+            light.stop();
         }
+        if let Some(switch) = self.switch.take() {
+            switch.stop();
+        }
+        let _ = std::fs::remove_file(self.room.join(UDP_SWITCH));
         Ok(())
     }
 
@@ -1323,14 +1356,17 @@ impl SandboxProvider for NetworkSandbox {
         if self.room.is_dir() {
             let _ = self.load();
         }
-        // Reattach: a switch socket still in the room means the daemon that
-        // ran this network went away without stopping it (a clean stop takes
-        // the socket with it). The guests never noticed; carry their frames
-        // again on the same path.
-        #[cfg(unix)]
+        // Reattach: a switch socket, or a UDP switch's port file, still in
+        // the room means the daemon that ran this network went away without
+        // stopping it (a clean stop takes both with it). The guests never
+        // noticed; carry their frames again on the same path, or the same
+        // UDP port.
         if self.switch.is_none()
             && self.net.is_some()
-            && self.switch_path().exists()
+            && match &self.switch_at {
+                Port::Path(path) => path.exists(),
+                Port::Udp(_) => self.room.join(UDP_SWITCH).exists(),
+            }
             && let Err(error) = self.start()
         {
             log::warn!(
@@ -1338,10 +1374,7 @@ impl SandboxProvider for NetworkSandbox {
                 self.identity.id
             );
         }
-        #[cfg(unix)]
         let lost = self.switch.as_ref().is_some_and(|switch| !switch.alive());
-        #[cfg(not(unix))]
-        let lost = false;
         let facts = match &self.net {
             Some(net) => facts(
                 &net.lock().unwrap_or_else(PoisonError::into_inner),
@@ -3374,7 +3407,6 @@ fn downloads() -> PathBuf {
 
 /// The address a light machine at `from` spoke as to reach `to`: its own
 /// IPv6 address for an IPv6 one.
-#[cfg(unix)]
 fn source(net: &Net, from: Ipv4Addr, to: IpAddr) -> IpAddr {
     if to.is_ipv4() {
         return from.into();
