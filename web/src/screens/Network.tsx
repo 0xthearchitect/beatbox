@@ -21,6 +21,7 @@ import labVlans from '../labs/vlans.json';
 import practiceFiles from '../labs/practice/files.json';
 import practiceGuests from '../labs/practice/guests.json';
 import practiceName from '../labs/practice/name.json';
+import practiceSplit from '../labs/practice/split.json';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
 } from '@/components/animate-ui/components/radix/dropdown-menu';
@@ -314,11 +315,13 @@ function Page({ page, children, net, title, lede, info, actions }: {
 const LABS = { switches: labSwitches, home: labHome, vlans: labVlans, sites: labSites, dmz: labDmz } as Record<string, NetFile>;
 const STARTS = ['empty', ...Object.keys(LABS)];
 /** Labs with a problem planted and the goals that say it is fixed. In this order, for "Next lab". */
-const PRACTICE = { files: practiceFiles, guests: practiceGuests, name: practiceName } as Record<string, NetFile>;
+const PRACTICE = { files: practiceFiles, guests: practiceGuests, name: practiceName, split: practiceSplit } as Record<string, NetFile>;
 /** The template each one grew from, for its picture. */
-const PRACTICE_SKETCH: Record<string, string> = { files: 'vlans', guests: 'home', name: 'vlans' };
+const PRACTICE_SKETCH: Record<string, string> = { files: 'vlans', guests: 'home', name: 'vlans', split: 'vlans' };
 /** The page where each one is fixed. */
-const PRACTICE_PLACE: Record<string, 'firewall' | 'names'> = { files: 'firewall', guests: 'firewall', name: 'names' };
+const PRACTICE_PLACE: Record<string, 'firewall' | 'names' | 'name_rules'> = { files: 'firewall', guests: 'firewall', name: 'names', split: 'name_rules' };
+/** Where each place is; name rules sit on the firewall's second tab. */
+const PLACE_HREF = { firewall: href('network/firewall'), names: href('network/names'), name_rules: href('network/firewall', { tab: 'names' }) };
 
 /** Labs ship with Portuguese names: a page in English gets them in English. */
 function labIn(lab: NetFile): NetFile {
@@ -520,7 +523,7 @@ function NewNetwork() {
       </div>
       <div className="bb-field" style={{ marginTop: 24 }}>
         <span>{t('beatbox.net.lab.practise')}</span>
-        <div className="bb-lab-grid">
+        <div className="bb-lab-grid bb-lab-practice">
           {Object.keys(PRACTICE).map((each) => (
             <button key={each} type="button" className={`bb-lab${start === each ? ' on' : ''}`} onClick={() => choose(each)}>
               <LabSketch kind={PRACTICE_SKETCH[each]!} />
@@ -2614,7 +2617,7 @@ function Practice({ net }: { net: Net }) {
         </div>
       ) : null}
       {miss ? (
-        <a className="bb-practice-go" href={href(`network/${PRACTICE_PLACE[lab]}`)}>
+        <a className="bb-practice-go" href={PLACE_HREF[PRACTICE_PLACE[lab]!]}>
           {runtimeText(`beatbox.net.practice.open.${PRACTICE_PLACE[lab]}`)}<Icon name="arrow" size="sm" />
         </a>
       ) : null}
@@ -3007,7 +3010,8 @@ type FirewallTab = (typeof FIREWALL_TABS)[number]['key'];
 export function NetworkFirewall() {
   const net = useNetwork();
   const { flows } = useFlows(net.network?.id ?? '', net.running);
-  const [tab, setTab] = useState<FirewallTab>('rules');
+  const asked = useRouteParams().get('tab');
+  const [tab, setTab] = useState<FirewallTab>(FIREWALL_TABS.find((each) => each.key === asked)?.key ?? 'rules');
   const counts: Partial<Record<FirewallTab, number>> = { rules: net.rules.length, names: net.names.length };
   return (
     <Page page="firewall" net={net} info={t('beatbox.net.firewall.lede')}>

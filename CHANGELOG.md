@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+### Machines
+
+- Programs, a new page for each machine: what it has, and what BeatBox can
+  add to it (tools, databases, web servers). It adds them even when the
+  machine has no internet, by downloading and checking them on this
+  computer first.
+
+### Networks
+
+- A fourth practice lab, One name, two answers: portal.local should lead
+  the office to the intranet and a guest to the public site.
+- A network made from a lab shows whole at once, instead of empty until
+  something else changed.
+- The remove button on a site or name rule shows when you point at it.
+
+### Servers
+
+- Prepare the machine installs what a service needs, on Debian and Ubuntu,
+  and says what it could not find.
+- Copies of a service's data: make one, put it back, and keep a copy of
+  what it has now first. Copies stay on this computer.
+- Why, for a service that runs but doesn't answer or stopped on its own:
+  what was seen, in order, and what to do about it.
+- Back from Freeze, a Server's services are running again without being
+  listed first.
+- A machine whose network port another program took while it was off gets
+  a new one when it starts.
+
 ## 0.1.4 (2026-11-24)
 
 Networks, servers and the practice labs on Windows.

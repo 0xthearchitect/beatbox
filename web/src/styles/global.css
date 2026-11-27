@@ -2211,6 +2211,8 @@ h1:hover .bb-rename-btn, .bb-rename-btn:focus-visible { opacity: 1; }
 .bb-sbx-pair + .bb-field { margin-top: 24px; }
 /* New network: lab thumbnails or a file. */
 .bb-lab-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+/* 320px fits a sketch (200px at zoom 1.4) and its padding; the labs share one row when there is room. */
+.bb-lab-practice { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .bb-lab { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 290px; padding: 16px 20px; border: 1px solid var(--bb-color-line); border-radius: 14px; background: var(--bb-color-hover); color: var(--bb-color-text); text-align: left; cursor: pointer; }
 .bb-lab:hover { border-color: var(--bb-color-line-strong); }
 .bb-lab:focus-visible { outline-color: var(--bb-color-sky); }
@@ -2399,7 +2401,7 @@ p.bb-router-internet { max-width: 44ch; color: var(--bb-color-text-muted); font-
 .bb-fw-what code { font-size: 12px; }
 .bb-fw-row > small { font-size: 12px; color: var(--bb-color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bb-fw-tools { display: flex; justify-content: flex-end; gap: 2px; opacity: 0; transition: opacity .12s; }
-.bb-fw-tools--on, .bb-fw-row:hover .bb-fw-tools, .bb-fw-tools:focus-within { opacity: 1; }
+.bb-fw-tools--on, .bb-fw-row:hover .bb-fw-tools, .bb-names-row:hover .bb-fw-tools, .bb-fw-tools:focus-within { opacity: 1; }
 .bb-fw-pinned .bb-fw-tools--on { grid-column: 7; }
 .bb-fw-tools button { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--bb-radius-sm); background: transparent; color: var(--bb-color-text-faint); cursor: pointer; }
 .bb-fw-tools button:hover:not(:disabled) { background: var(--bb-color-hover); color: var(--bb-color-text); }

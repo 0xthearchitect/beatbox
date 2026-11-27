@@ -892,4 +892,30 @@ mod busy_tests {
         long.join().unwrap();
         assert!(sandbox.refresh_unless_busy().is_ok());
     }
+
+    /// After an action, what was known is the sandbox before it: a page
+    /// waits for the lane and a real look instead of keeping that.
+    #[test]
+    fn a_refresh_after_an_action_waits_for_a_real_look() {
+        let (runtime, _log) = mock();
+        let sandbox = runtime.create(config("mock")).unwrap();
+        sandbox.start().unwrap();
+        sandbox.refresh().unwrap();
+        sandbox
+            .act("process.execute", data!({"command": "/tmp/sample.exe"}))
+            .unwrap();
+        let (held, wait_for_held) = mpsc::channel();
+        let busy = sandbox.clone();
+        let short = thread::spawn(move || {
+            busy.provider(|_: &mut beatbox_engine::runtime::providers::MockSandbox| {
+                held.send(()).unwrap();
+                thread::sleep(Duration::from_millis(200));
+            })
+        });
+        wait_for_held.recv().unwrap();
+        let asked = Instant::now();
+        sandbox.refresh_unless_busy().unwrap();
+        assert!(asked.elapsed() >= Duration::from_millis(150));
+        short.join().unwrap();
+    }
 }

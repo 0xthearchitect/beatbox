@@ -299,9 +299,9 @@ test('an example address is the tenth of the network, and none for what is no IP
 
 test('in English, no lab keeps a Portuguese name', () => {
   // A name the English swap leaves alone must read the same in both languages.
-  const same = new Set(['pc1', 'pc2', 'web', 'nas', 'intranet', 'DMZ', 'intranet.local']);
+  const same = new Set(['pc1', 'pc2', 'web', 'nas', 'intranet', 'DMZ', 'intranet.local', 'site', 'portal.local']);
   const left = [];
-  for (const lab of ['dmz', 'home', 'sites', 'switches', 'vlans', 'practice/files', 'practice/guests', 'practice/name']) {
+  for (const lab of ['dmz', 'home', 'sites', 'switches', 'vlans', 'practice/files', 'practice/guests', 'practice/name', 'practice/split']) {
     const pt = JSON.parse(readFileSync(new URL(`../src/labs/${lab}.json`, import.meta.url), 'utf8'));
     const names = (file) => [
       ...file.nodes.map((n) => n.node),
@@ -346,4 +346,16 @@ test('each practice lab ships unsolved, its fix solves it, and opening everythin
   assert.equal(check(name)?.why, 'name');
   assert.equal(check({ ...name, dns: { 'intranet.local': '10.20.30.11' } }), null);
   assert.equal(check(open(name))?.why, 'open');
+
+  const split = read('split');
+  assert.deepEqual([check(split)?.why, check(split)?.goal.from], ['name', 'vendas1']);
+  const plus = (source) => ({ ...split, firewall: { ...split.firewall,
+    names: [...split.firewall.names, { ...split.firewall.names[0], id: 'n2', source }] } });
+  // A rule for Sales too; the guest keeps the public answer.
+  assert.equal(check(plus('vlan:20')), null);
+  // The tempting fixes take the guest in too.
+  for (const source of ['any', '10.20.0.0/16']) {
+    assert.deepEqual([check(plus(source))?.why, check(plus(source))?.goal.from], ['name', 'convidado']);
+  }
+  assert.equal(check({ ...plus('vlan:20'), firewall: { ...plus('vlan:20').firewall, default: 'allow', rules: [] } })?.why, 'open');
 });

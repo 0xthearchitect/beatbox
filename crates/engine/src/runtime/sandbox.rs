@@ -18,7 +18,7 @@
 use std::any::Any;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
 use beatbox_reasons::{Reason, reason};
@@ -137,11 +137,14 @@ pub struct Sandbox {
 /// Counts observations so callers queued behind one lane share an answer.
 ///
 /// `begun` is the last one started, `answered` the last that finished
-/// without failing. Both move only under the lane; `begun` is read without.
+/// without failing. `acted`: an action finished since that answer, so it
+/// no longer says what is there. All move only under the lane; `begun` and
+/// `acted` are read without.
 #[derive(Default)]
 struct Looks {
     begun: AtomicU64,
     answered: AtomicU64,
+    acted: AtomicBool,
 }
 
 /// The half that does things, behind the sandbox's own lock: its lane.
@@ -362,11 +365,16 @@ impl Sandbox {
     /// [`Self::refresh`], unless something holds the lane: then the last
     /// thing known, at once. For a page, which polls again anyway, and
     /// should not stay blank while a long command runs inside the guest.
+    ///
+    /// Not when an action finished since: the last thing known is then the
+    /// sandbox before it (a network just imported, still empty), and a page
+    /// that isn't polling would keep it.
     pub fn refresh_unless_busy(&self) -> Result<SandboxState, EngineError> {
         let asked = self.looks.begun.load(Ordering::SeqCst);
         let core = match self.core.try_lock() {
             Ok(core) => core,
             Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) if self.looks.acted.load(Ordering::SeqCst) => self.lane(),
             Err(TryLockError::WouldBlock) => return Ok(self.state()),
         };
         self.look(asked, core)
@@ -379,12 +387,15 @@ impl Sandbox {
         asked: u64,
         mut core: std::sync::MutexGuard<'_, Core>,
     ) -> Result<SandboxState, EngineError> {
-        if self.looks.answered.load(Ordering::SeqCst) > asked {
+        if self.looks.answered.load(Ordering::SeqCst) > asked
+            && !self.looks.acted.load(Ordering::SeqCst)
+        {
             return Ok(core.state());
         }
         let number = self.looks.begun.fetch_add(1, Ordering::SeqCst) + 1;
         let state = core.refresh()?;
         self.looks.answered.store(number, Ordering::SeqCst);
+        self.looks.acted.store(false, Ordering::SeqCst);
         Ok(state)
     }
 
@@ -402,7 +413,10 @@ impl Sandbox {
     /// the arguments fit the spec. Whether now is a good moment is the
     /// provider's call.
     pub fn perform(&self, action: Action) -> ActionOutcome {
-        self.lane().perform(action)
+        let mut core = self.lane();
+        let outcome = core.perform(action);
+        self.looks.acted.store(true, Ordering::SeqCst);
+        outcome
     }
 }
 

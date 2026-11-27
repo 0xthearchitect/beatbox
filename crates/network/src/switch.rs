@@ -4262,6 +4262,33 @@ mod tests {
     }
 
     #[test]
+    fn one_name_answers_by_who_asks() {
+        let mut net = net();
+        let gateway = net.live.gateway();
+        net.live
+            .dns
+            .insert("portal.local".into(), net.nodes[0].address);
+        net.add_name(NameRule {
+            id: String::new(),
+            action: NameAction::Point("b".into()),
+            name: "portal.local".into(),
+            source: "a".into(),
+            uses: 0,
+        });
+        let ask = |net: &mut Net, from: usize| {
+            let (out, _) = net.handle(
+                from,
+                &outward(net, from, gateway, 53, &query("portal.local")),
+            );
+            let answer = frame::udp_data(frame::ipv4(&out[0].1).unwrap().payload).to_vec();
+            answer[answer.len() - 4..].to_vec()
+        };
+        // a gets the rule's answer; b, whom the rule is not for, the plain one.
+        assert_eq!(ask(&mut net, 0), net.nodes[1].address.octets());
+        assert_eq!(ask(&mut net, 1), net.nodes[0].address.octets());
+    }
+
+    #[test]
     fn a_rule_by_name_hides_points_or_cuts() {
         let mut net = net();
         net.set_internet(true);

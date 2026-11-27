@@ -650,7 +650,7 @@ const LAB_NAMES_EN: Record<string, string> = {
   azul1: 'blue1', azul2: 'blue2', verde1: 'green1', verde2: 'green2', Azul: 'Blue', Verde: 'Green',
   portatil: 'laptop', telemovel: 'phone', 'nas.casa': 'nas.home',
   gestao1: 'mgmt1', gestao2: 'mgmt2', gestao3: 'mgmt3', vendas1: 'sales1', vendas2: 'sales2', vendas3: 'sales3',
-  ficheiros: 'files', 'Gestão': 'Management', Vendas: 'Sales', Servidores: 'Servers',
+  ficheiros: 'files', 'Gestão': 'Management', Vendas: 'Sales', Servidores: 'Servers', Convidados: 'Guests',
   'pc-sede': 'pc-hq', 'srv-sede': 'srv-hq', 'pc-filial': 'pc-branch', 'srv-filial': 'srv-branch', Filial: 'Branch', 'Ligação': 'Link',
   convidado: 'guest', correio: 'mail', 'www.empresa.pt': 'www.company.example', 'jogos.exemplo': 'games.example', 'anuncios.exemplo': 'ads.example',
 };
