@@ -36,6 +36,7 @@ export const ROUTES: readonly RouteDef[] = [
   { id: 'host.commands', path: 'host/commands', nav: null, chrome: 'shell', phase: 1 },
   { id: 'host.watchers', path: 'host/watchers', nav: null, chrome: 'shell', phase: 1 },
   { id: 'host.pen', path: 'host/pen', nav: null, chrome: 'shell', phase: 1 },
+  { id: 'host.programs', path: 'host/programs', nav: null, chrome: 'shell', phase: 1 },
   { id: 'network.overview', path: 'network/overview', nav: null, chrome: 'shell', phase: 3 },
   { id: 'network.router', path: 'network/router', nav: null, chrome: 'shell', phase: 3 },
   { id: 'network.names', path: 'network/names', nav: null, chrome: 'shell', phase: 3 },
@@ -86,6 +87,7 @@ export const SANDBOXES: readonly SandboxKind[] = [
       { key: 'commands', icon: 'terminal', path: 'host/commands' },
       { key: 'watchers', icon: 'eye', path: 'host/watchers' },
       { key: 'pen', icon: 'usb', path: 'host/pen' },
+      { key: 'programs', icon: 'puzzle', path: 'host/programs' },
     ],
   },
   {

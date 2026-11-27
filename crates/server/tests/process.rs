@@ -9,15 +9,21 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+#[path = "../../isolation/src/base64.rs"]
+mod base64;
+
 use beatbox_engine::{
     Action, ActionOutcome, Data, Isolation, Observation, ProviderError, ProviderSpec, Recorder,
     RuntimeParts, Sandbox, SandboxConfig, SandboxProvider, SandboxRegistry, SandboxRuntime, data,
 };
 use beatbox_server::process::{
-    ALIVE, CERTIFICATE, HAS, LOG_DIR, PROGRAM_CHECK, START, STOP, TCP_CHECK,
+    ALIVE, APPEND, APPLY, CERTIFICATE, HAS, HTTP_SAID, INSTALL, LISTENING, LOG_DIR, PACK, PIECE,
+    PIECE_BYTES, PLAN, PREPARING, PROGRAM_CHECK, SIZE, STAGE, START, STOP, SUM, TCP_CHECK, UNPACK,
+    UNSTAGE,
 };
 use beatbox_server::{CAPABILITIES, ServerSandbox, actions};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
 #[derive(Default)]
 struct Guest {
@@ -48,6 +54,33 @@ struct Guest {
     log: Option<&'static str>,
     /// The programs and paths it has, for `server.check`.
     has: Vec<&'static str>,
+    /// What looking at what preparing it takes says.
+    plan: &'static str,
+    /// What starting an install exits with.
+    apply_exit: i64,
+    /// Every install started, as what follows the install script.
+    applied: Vec<Vec<String>>,
+    /// Files by path, as bytes: a service's data and the copies' stages.
+    blobs: BTreeMap<String, Vec<u8>>,
+    /// Every database put back, as what `load` was told it was made with.
+    loads: Vec<String>,
+    /// The body a web check answers with.
+    said: &'static str,
+    /// Whether nothing listens on the service's port, when it is not what
+    /// `sick` says.
+    deaf: Option<bool>,
+    /// What `ss` and `ps` say, for which ports a service holds.
+    listening: &'static str,
+}
+
+impl Guest {
+    fn under(&self, path: &str) -> Vec<String> {
+        self.blobs
+            .keys()
+            .filter(|key| *key == path || key.starts_with(&format!("{path}/")))
+            .cloned()
+            .collect()
+    }
 }
 
 type Shared = Arc<Mutex<Guest>>;
@@ -171,6 +204,69 @@ impl SandboxProvider for PretendHost {
                                 },
                                 "",
                             )
+                        } else if script == PLAN {
+                            done(0, guest.plan)
+                        } else if script == APPLY {
+                            assert_eq!(parameters[0], INSTALL, "only ever its own install");
+                            let after = parameters[1..].to_vec();
+                            guest.applied.push(after);
+                            done(guest.apply_exit, "")
+                        } else if script == PREPARING {
+                            done(
+                                0,
+                                "state=done\ninstalled=nginx 1.24.0-2ubuntu7\nline=Setting up nginx (1.24.0-2ubuntu7) ...\n",
+                            )
+                        } else if script == STAGE || script == UNSTAGE {
+                            for key in guest.under(&parameters[0]) {
+                                guest.blobs.remove(&key);
+                            }
+                            done(0, "")
+                        } else if script == PACK {
+                            let mut packed: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+                            for path in &parameters[1..] {
+                                for key in guest.under(path) {
+                                    packed.insert(key.clone(), guest.blobs[&key].clone());
+                                }
+                            }
+                            let bytes = serde_json::to_vec(&packed).unwrap();
+                            guest.blobs.insert(format!("{}/copy", parameters[0]), bytes);
+                            done(0, "")
+                        } else if script == UNPACK {
+                            let copy = &guest.blobs[&format!("{}/copy", parameters[0])];
+                            let packed: BTreeMap<String, Vec<u8>> =
+                                serde_json::from_slice(copy).unwrap();
+                            for path in &parameters[1..] {
+                                for key in guest.under(path) {
+                                    guest.blobs.remove(&key);
+                                }
+                            }
+                            guest.blobs.extend(packed);
+                            done(0, "")
+                        } else if script == SUM {
+                            let bytes = &guest.blobs[&parameters[0]];
+                            let sha = format!("{:x}", Sha256::digest(bytes));
+                            done(0, &format!("bytes={}\nsha={sha}\n", bytes.len()))
+                        } else if script == PIECE {
+                            let bytes = &guest.blobs[&parameters[0]];
+                            let at = parameters[1].parse::<usize>().unwrap() * PIECE_BYTES as usize;
+                            let end = (at + PIECE_BYTES as usize).min(bytes.len());
+                            done(0, &base64::encode(&bytes[at..end]))
+                        } else if script == APPEND {
+                            let piece = guest
+                                .files
+                                .remove(&format!("{}/piece", parameters[0]))
+                                .unwrap();
+                            let raw = base64::decode(&piece).unwrap();
+                            guest
+                                .blobs
+                                .entry(format!("{}/copy", parameters[0]))
+                                .or_default()
+                                .extend(raw);
+                            done(0, "")
+                        } else if script == LISTENING {
+                            done(0, guest.listening)
+                        } else if script == SIZE {
+                            done(0, "48\n")
                         } else if script == STOP {
                             let pid: i64 = parameters[0].parse().unwrap();
                             guest.running.remove(&pid);
@@ -180,6 +276,29 @@ impl SandboxProvider for PretendHost {
                         }
                     }
                     "mkdir" | "rm" | "chmod" => done(0, ""),
+                    // PostgreSQL copying itself: its definition's own script.
+                    "bash" if arguments.get(2).map(String::as_str) == Some("postgresql-copy") => {
+                        let file = arguments[9].clone();
+                        if arguments[3] == "dump" {
+                            guest.blobs.insert(file, b"PGDMP shop".to_vec());
+                            return done(0, "made_with=16\n");
+                        }
+                        let made = arguments[10].clone();
+                        if made.as_str() > "16" {
+                            return done(
+                                3,
+                                &format!(
+                                    r#"{{"code":"server.copy_newer","values":{{"made":"{made}","has":"16"}}}}"#
+                                ),
+                            );
+                        }
+                        assert_eq!(
+                            guest.blobs[&file], b"PGDMP shop",
+                            "the dump went back as it came"
+                        );
+                        guest.loads.push(made);
+                        done(0, "")
+                    }
                     "timeout" => {
                         assert_eq!(arguments[0], "3", "a check is always bounded");
                         let checked = arguments[1..].to_vec();
@@ -189,9 +308,18 @@ impl SandboxProvider for PretendHost {
                                 None => done(0, ""),
                             };
                         }
+                        let well = !guest.sick && !guest.running.is_empty();
+                        if checked.get(2).map(String::as_str) == Some(HTTP_SAID) {
+                            let code = if well { 200 } else { 503 };
+                            return done(0, &format!("code={code}\n{}", guest.said));
+                        }
+                        if let (Some(deaf), Some(TCP_CHECK)) =
+                            (guest.deaf, checked.get(2).map(String::as_str))
+                        {
+                            return done(i64::from(deaf), "");
+                        }
                         // Definitions may also supply their own bash command check.
                         guest.checks.push(checked);
-                        let well = !guest.sick && !guest.running.is_empty();
                         done(if well { 0 } else { 1 }, "")
                     }
                     "tail" => done(
@@ -668,6 +796,83 @@ fn the_check_says_what_the_machine_has_for_every_kind() {
     let off = ok(act(&w.server, "server.check", Data::new()));
     assert_eq!(off["host"]["agent"], false);
     assert_eq!(off["host"]["programs"], json!({}));
+}
+
+/// Preparing a machine: looking only reads, and only the programs the
+/// service lacks that its definition names a package for get installed,
+/// once a person says so.
+#[test]
+fn preparing_looks_first_and_installs_only_what_is_missing_when_asked() {
+    let w = world();
+    {
+        let mut guest = w.guest.lock().unwrap();
+        guest.has = vec!["python3"];
+        guest.plan = "system=Ubuntu 24.04.1 LTS\napt=yes\nfree_kb=6000000\nreach=yes\nlists=yes\nroom_kb=4200\nget_kb=2100\n";
+    }
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "nginx", "name": "site"}),
+    ));
+    let plan = ok(act(&w.server, "server.prepare", data!({"service": "site"})));
+    assert_eq!(plan["system"], "Ubuntu 24.04.1 LTS");
+    assert_eq!(plan["apt"], true);
+    assert_eq!(plan["reach"], true);
+    assert_eq!(plan["get_kb"], 2100);
+    assert_eq!(plan["have"], json!(["python3"]));
+    assert_eq!(
+        plan["install"],
+        json!([{"program": "nginx", "package": "nginx"}])
+    );
+    assert_eq!(plan["yourself"], json!([]));
+    assert!(
+        w.guest.lock().unwrap().applied.is_empty(),
+        "looking installed something"
+    );
+
+    let started = ok(act(
+        &w.server,
+        "server.prepare",
+        data!({"service": "site", "install": true}),
+    ));
+    assert_eq!(started["packages"], json!(["nginx"]));
+    assert_eq!(
+        w.guest.lock().unwrap().applied,
+        vec![vec!["nginx.service".to_owned(), "nginx".to_owned()]]
+    );
+    let after = ok(act(&w.server, "server.preparing", Data::new()));
+    assert_eq!(after["state"], "done");
+    assert_eq!(after["installed"]["nginx"], "1.24.0-2ubuntu7");
+
+    // One install at a time.
+    w.guest.lock().unwrap().apply_exit = 3;
+    let (busy, _) = no(act(
+        &w.server,
+        "server.prepare",
+        data!({"service": "site", "install": true}),
+    ));
+    assert_eq!(busy, "server.prepare_busy");
+
+    // Nothing missing: nothing to install, and nothing run to do it.
+    w.guest.lock().unwrap().has = vec!["python3", "nginx"];
+    let (none, _) = no(act(
+        &w.server,
+        "server.prepare",
+        data!({"service": "site", "install": true}),
+    ));
+    assert_eq!(none, "server.nothing_to_install");
+    assert_eq!(w.guest.lock().unwrap().applied.len(), 2);
+
+    // A program no package is named for is for a person.
+    w.guest.lock().unwrap().has = vec![];
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "smtp", "name": "mail"}),
+    ));
+    let mail = ok(act(&w.server, "server.prepare", data!({"service": "mail"})));
+    assert_eq!(mail["install"], json!([]));
+    assert_eq!(mail["yourself"], json!(["mailpit", "bash"]));
 }
 
 #[test]
@@ -1808,6 +2013,32 @@ fn a_frozen_machine_is_not_asked_and_its_services_are_still_listed() {
 }
 
 #[test]
+fn back_from_a_freeze_the_facts_say_running_without_asking_the_guest() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "http-static", "name": "site"}),
+    ));
+    ok(act(&w.server, "service.start", data!({"service": "site"})));
+    w.host.pause().unwrap();
+    let services = |w: &World| w.server.refresh().unwrap().facts["services"][0].clone();
+    assert_eq!(services(&w)["state"], "stopped");
+    w.host.resume().unwrap();
+    let before = w.guest.lock().unwrap().calls.len();
+    assert_eq!(services(&w)["state"], "running");
+    assert_eq!(w.guest.lock().unwrap().calls.len(), before);
+
+    // Stopped while frozen, it booted afresh: nothing comes back by itself.
+    w.host.pause().unwrap();
+    services(&w);
+    w.host.stop().unwrap();
+    services(&w);
+    w.host.start().unwrap();
+    assert_eq!(services(&w)["state"], "stopped");
+}
+
+#[test]
 fn starting_the_server_discovers_the_web_address_without_refreshing_the_host() {
     let w = world();
     w.guest.lock().unwrap().addresses = Some(vec!["127.0.0.1".into()]);
@@ -2526,5 +2757,394 @@ mod shared {
         let (code, values) = no(act(&w.server, "service.start", data!({"service": "shop"})));
         assert_eq!(code, "server.program_missing");
         assert_eq!(values["program"], "openssl");
+    }
+}
+
+fn starts(guest: &Shared) -> usize {
+    let guest = guest.lock().unwrap();
+    guest
+        .calls
+        .iter()
+        .filter(|(cap, args)| {
+            cap == "process.execute"
+                && words(&args["arguments"]).get(1).map(String::as_str) == Some(START)
+        })
+        .count()
+}
+
+#[test]
+fn a_copy_comes_here_whole_and_goes_back_over_what_changed() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "smtp", "name": "mail"}),
+    ));
+    ok(act(&w.server, "service.start", data!({"service": "mail"})));
+    let listed = ok(act(&w.server, "server.copies", data!({"service": "mail"})));
+    let folder = listed["data"]["paths"][0].as_str().unwrap().to_owned();
+    assert!(folder.starts_with("/var/lib/beatbox/") && folder.ends_with("-mail"));
+    assert_eq!(listed["data"]["bytes"], 48 * 1024);
+    assert_eq!(listed["data"]["running"], false);
+    let inbox = format!("{folder}/mailpit.db");
+    w.guest
+        .lock()
+        .unwrap()
+        .blobs
+        .insert(inbox.clone(), b"one message".to_vec());
+
+    let before = starts(&w.guest);
+    let made = ok(act(
+        &w.server,
+        "server.copy",
+        data!({"service": "mail", "note": "before the test"}),
+    ));
+    let copy = made["copy"]["copy"].as_str().unwrap().to_owned();
+    assert_eq!(made["copy"]["note"], "before the test");
+    assert_eq!(made["copy"]["kind"], "files");
+    assert_eq!(made["copy"]["machine"], "web");
+    assert_eq!(
+        starts(&w.guest),
+        before + 1,
+        "stopped to pack, started again"
+    );
+    let here = w.room.join("copies").join("mail");
+    assert!(here.join(format!("{copy}.copy")).is_file());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode =
+            |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&w.room.join("copies")), 0o700);
+        assert_eq!(mode(&here.join(format!("{copy}.copy"))), 0o600);
+    }
+    assert!(!here.join(format!("{copy}.part")).exists());
+    assert!(
+        w.guest
+            .lock()
+            .unwrap()
+            .blobs
+            .keys()
+            .all(|key| !key.starts_with("/var/lib/beatbox/copies/")),
+        "the stage is left behind"
+    );
+
+    {
+        let mut guest = w.guest.lock().unwrap();
+        guest.blobs.insert(inbox.clone(), b"two messages".to_vec());
+        guest
+            .blobs
+            .insert(format!("{folder}/extra"), b"new".to_vec());
+    }
+    let back = ok(act(
+        &w.server,
+        "server.copy_back",
+        data!({"service": "mail", "copy": copy}),
+    ));
+    assert!(
+        back["saved"]["copy"].is_string(),
+        "what it had was copied first"
+    );
+    assert_eq!(back["saved"]["before"], copy.as_str());
+    {
+        let guest = w.guest.lock().unwrap();
+        assert_eq!(guest.blobs[&inbox], b"one message");
+        assert!(!guest.blobs.contains_key(&format!("{folder}/extra")));
+    }
+    let listed = ok(act(&w.server, "server.copies", data!({"service": "mail"})));
+    assert_eq!(listed["copies"].as_array().unwrap().len(), 2);
+
+    // One that did not finish is said, and never put back.
+    std::fs::write(here.join("12.part"), b"half").unwrap();
+    let listed = ok(act(&w.server, "server.copies", data!({"service": "mail"})));
+    assert_eq!(listed["unfinished"], json!(["12"]));
+    let (half, _) = no(act(
+        &w.server,
+        "server.copy_back",
+        data!({"service": "mail", "copy": "12"}),
+    ));
+    assert_eq!(half, "server.no_such_copy");
+    ok(act(
+        &w.server,
+        "server.copy_delete",
+        data!({"service": "mail", "copy": "12"}),
+    ));
+    assert!(!here.join("12.part").exists());
+
+    // A name is never a path.
+    let (odd, _) = no(act(
+        &w.server,
+        "server.copy_delete",
+        data!({"service": "mail", "copy": "../services"}),
+    ));
+    assert_eq!(odd, "server.no_such_copy");
+    ok(act(
+        &w.server,
+        "server.copy_delete",
+        data!({"service": "mail", "copy": copy}),
+    ));
+    let listed = ok(act(&w.server, "server.copies", data!({"service": "mail"})));
+    assert_eq!(listed["copies"].as_array().unwrap().len(), 1);
+
+    // Removed with its data, its copies stay.
+    ok(act(
+        &w.server,
+        "service.remove",
+        data!({"service": "mail", "delete_data": true}),
+    ));
+    assert_eq!(std::fs::read_dir(&here).unwrap().count(), 2);
+}
+
+#[test]
+fn a_database_copies_itself_running_and_refuses_a_newer_copy() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "postgresql", "name": "db", "config": {"initial_password": "pw", "database": "shop"}}),
+    ));
+    ok(act(&w.server, "service.start", data!({"service": "db"})));
+    let before = starts(&w.guest);
+    let made = ok(act(&w.server, "server.copy", data!({"service": "db"})));
+    assert_eq!(made["copy"]["kind"], "dump");
+    assert_eq!(made["copy"]["made_with"], "16");
+    assert_eq!(
+        starts(&w.guest),
+        before,
+        "a database is never stopped to copy"
+    );
+    let copy = made["copy"]["copy"].as_str().unwrap().to_owned();
+
+    ok(act(
+        &w.server,
+        "server.copy_back",
+        data!({"service": "db", "copy": copy, "first": false}),
+    ));
+    assert_eq!(w.guest.lock().unwrap().loads, vec!["16".to_owned()]);
+
+    let manifest = w
+        .room
+        .join("copies")
+        .join("db")
+        .join(format!("{copy}.json"));
+    let text = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(&manifest, text.replace("\"16\"", "\"17\"")).unwrap();
+    let (newer, values) = no(act(
+        &w.server,
+        "server.copy_back",
+        data!({"service": "db", "copy": copy, "first": false}),
+    ));
+    assert_eq!(newer, "server.copy_newer");
+    assert_eq!(values["service"], "db");
+
+    ok(act(&w.server, "service.stop", data!({"service": "db"})));
+    let (stopped, _) = no(act(
+        &w.server,
+        "server.copy_back",
+        data!({"service": "db", "copy": copy}),
+    ));
+    assert_eq!(stopped, "server.copy_back_start_first");
+    let (stopped, _) = no(act(&w.server, "server.copy", data!({"service": "db"})));
+    assert_eq!(stopped, "server.copy_start_first");
+}
+
+#[test]
+fn a_service_with_no_data_has_nothing_to_copy() {
+    let w = world();
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "nginx", "name": "site"}),
+    ));
+    let listed = ok(act(&w.server, "server.copies", data!({"service": "site"})));
+    assert_eq!(listed["data"], Value::Null);
+    let (none, _) = no(act(&w.server, "server.copy", data!({"service": "site"})));
+    assert_eq!(none, "server.no_data");
+}
+
+#[test]
+fn copies_are_only_made_in_a_linux_machine() {
+    let w = world_with("windows", Data::new());
+    ok(act(
+        &w.server,
+        "service.create",
+        data!({"definition": "smtp", "name": "mail"}),
+    ));
+    let (windows, _) = no(act(&w.server, "server.copy", data!({"service": "mail"})));
+    assert_eq!(windows, "server.copy_linux_only");
+}
+
+mod why {
+    use super::*;
+
+    fn why(w: &World, service: &str) -> Data {
+        ok(act(&w.server, "server.why", data!({"service": service})))
+    }
+
+    fn fact<'a>(said: &'a Data, name: &str) -> Vec<&'a Value> {
+        said["facts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|each| each["fact"] == name)
+            .collect()
+    }
+
+    fn site(w: &World) {
+        ok(act(
+            &w.server,
+            "service.create",
+            data!({"definition": "http-static", "name": "site", "config": {"port": 8080}}),
+        ));
+        ok(act(&w.server, "service.start", data!({"service": "site"})));
+    }
+
+    #[test]
+    fn its_own_check_names_the_database_that_is_down() {
+        let w = world();
+        ok(act(
+            &w.server,
+            "service.create",
+            data!({"definition": "postgresql", "name": "db", "config": {"initial_password": "pw"}}),
+        ));
+        {
+            let mut guest = w.guest.lock().unwrap();
+            guest.sick = true;
+            guest.deaf = Some(false);
+            guest.said = r#"{"database": false, "email": true, "inbox": null}"#;
+        }
+        site(&w);
+        let said = why(&w, "site");
+        assert_eq!(fact(&said, "machine")[0]["ok"], true);
+        assert_eq!(fact(&said, "running")[0]["ok"], true);
+        assert_eq!(fact(&said, "listens")[0]["port"], 8080);
+        assert_eq!(fact(&said, "listens")[0]["ok"], true);
+        let check = fact(&said, "check")[0];
+        assert_eq!(check["ok"], false);
+        assert_eq!(check["code"], 503);
+        assert_eq!(check["missing"], json!(["database"]));
+        assert_eq!(fact(&said, "other")[0]["service"], "db");
+        assert_eq!(
+            said["maybe"],
+            json!({"kind": "needs", "other": "db", "definition": "postgresql", "word": "database"})
+        );
+        assert!(said["checked_at"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn a_check_that_names_nothing_down_is_only_a_failed_check() {
+        let w = world();
+        {
+            let mut guest = w.guest.lock().unwrap();
+            guest.sick = true;
+            guest.deaf = Some(false);
+            guest.said = "<h1>Bad gateway</h1>";
+        }
+        site(&w);
+        let said = why(&w, "site");
+        assert_eq!(fact(&said, "check")[0]["missing"], json!([]));
+        assert_eq!(said["maybe"], json!({"kind": "check_failed"}));
+    }
+
+    #[test]
+    fn nothing_on_its_port_says_which_ports_its_program_holds() {
+        let w = world();
+        site(&w);
+        let pid = ok(act(&w.server, "service.list", data!({})))["services"][0]["pid"]
+            .as_i64()
+            .unwrap();
+        {
+            let mut guest = w.guest.lock().unwrap();
+            guest.sick = true;
+            guest.deaf = Some(true);
+            // Its child holds 80; someone else's program holds 22.
+            guest.listening = Box::leak(
+                format!("80 9001\n22 500\n--\n9001 {pid}\n{pid} 1\n500 1\n").into_boxed_str(),
+            );
+        }
+        let said = why(&w, "site");
+        assert_eq!(fact(&said, "listens")[0]["ok"], false);
+        assert_eq!(
+            said["maybe"],
+            json!({"kind": "elsewhere", "port": 8080, "ports": [80]})
+        );
+    }
+
+    #[test]
+    fn with_its_machine_off_that_is_all_it_says() {
+        let w = world();
+        site(&w);
+        w.host.stop().unwrap();
+        let said = why(&w, "site");
+        assert_eq!(said["facts"], json!([{"fact": "machine", "ok": false}]));
+        assert_eq!(said["maybe"], json!({"kind": "machine_off"}));
+    }
+
+    #[test]
+    fn the_diary_keeps_its_order_across_a_restart_and_says_again_as_again() {
+        let w = world();
+        w.guest.lock().unwrap().sick = true;
+        site(&w);
+        ok(act(
+            &w.server,
+            "service.restart",
+            data!({"service": "site"}),
+        ));
+        w.host.stop().unwrap();
+        ok(act(&w.server, "service.list", data!({})));
+        // BeatBox starting again makes the Server again over the same room.
+        let again = w
+            ._runtime
+            .create(
+                SandboxConfig::new("server")
+                    .unwrap()
+                    .named("srv-again")
+                    .with_settings(data!({"workspace": w.room.to_string_lossy()}))
+                    .using("host", "web"),
+            )
+            .unwrap();
+        again.start().unwrap();
+        let entries = ok(act(&again, "server.diary", data!({})))["entries"].clone();
+        let said: Vec<(String, Value)> = entries
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|each| {
+                let name = each["name"].as_str().unwrap().to_owned();
+                let detail = match name.as_str() {
+                    "service.health.changed" => json!([each["to"], each["again"]]),
+                    "peer" => json!([each["role"], each["state"], each["first"]]),
+                    _ => each["service"].clone(),
+                };
+                (name, detail)
+            })
+            .collect();
+        let at: Vec<u64> = entries
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|each| each["at"].as_u64().unwrap())
+            .collect();
+        assert!(at.windows(2).all(|pair| pair[0] <= pair[1]), "in order");
+        let health: Vec<&Value> = said
+            .iter()
+            .filter(|(name, _)| name == "service.health.changed")
+            .map(|(_, detail)| detail)
+            .collect();
+        assert_eq!(
+            health,
+            [
+                &json!(["unhealthy", false]),
+                &json!(["unknown", null]),
+                &json!(["unhealthy", true]),
+                // Its machine went off with it.
+                &json!(["unknown", null]),
+            ]
+        );
+        // Seen first as it already was; then seen to change.
+        assert!(said.contains(&("peer".into(), json!(["host", "running", true]))));
+        assert!(said.contains(&("peer".into(), json!(["host", "stopped", false]))));
+        assert_eq!(said.last().unwrap().0, "beatbox.started");
+        assert!(said.iter().any(|(name, _)| name == "service.created"));
     }
 }

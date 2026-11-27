@@ -160,6 +160,11 @@ fn an_internal_service_on_tcp_is_refused_by_name() {
     assert_eq!(why.values["definition"], "dns-tcp");
 }
 
+/// The custom definition, requiring `erp`, installed with `apt`.
+fn erp_apt(apt: Value) -> Value {
+    with(with(custom(), &["requires"], json!(["erp"])), &["apt"], apt)
+}
+
 #[test]
 fn every_other_mistake_is_refused_with_what_it_is() {
     let cases = [
@@ -239,6 +244,60 @@ fn every_other_mistake_is_refused_with_what_it_is() {
         (
             with(custom(), &["requires"], json!(["python3", "rm -rf /"])),
             "not a program it can require",
+        ),
+        // Packages go to apt-get as words: never an option, never two.
+        (
+            erp_apt(json!({"packages": {"erp": "-oAPT::Get::AllowUnauthenticated=1"}})),
+            "not a package name",
+        ),
+        (
+            erp_apt(json!({"packages": {"erp": "erp; reboot"}})),
+            "not a package name",
+        ),
+        (
+            erp_apt(json!({"packages": {"curl": "curl"}})),
+            "installed but not required",
+        ),
+        (
+            erp_apt(json!({"packages": {"erp": "erp"}, "keep_off": ["*"]})),
+            "not a unit name",
+        ),
+        // Its data is its own folder: never past it, never anyone's.
+        (
+            with(custom(), &["data"], json!({"paths": ["/var/lib/erp"]})),
+            "not a path of its own",
+        ),
+        (
+            with(
+                custom(),
+                &["data"],
+                json!({"paths": ["/var/lib/{_id}/../.."]}),
+            ),
+            "not a path of its own",
+        ),
+        (
+            with(custom(), &["data"], json!({"paths": ["var/{_id}"]})),
+            "not a path of its own",
+        ),
+        (
+            with(
+                custom(),
+                &["data"],
+                json!({"paths": ["/var/{_id}"], "dump": ["erp", "dump", "{_copy}"]}),
+            ),
+            "both dump and load",
+        ),
+        (
+            with(
+                custom(),
+                &["data"],
+                json!({"paths": ["/var/{_id}"], "dump": ["erp", "dump"], "load": ["erp", "load", "{_copy}"]}),
+            ),
+            "must name {_copy}",
+        ),
+        (
+            with(custom(), &["data"], json!({"paths": ["/var/{_id}/{nope}"]})),
+            "{nope} names nothing",
         ),
     ];
     for (raw, expected) in cases {
@@ -386,4 +445,24 @@ fn an_instances_own_folders_are_the_ones_named_by_its_id() {
         definition.own_folders(),
         ["/etc/app/{_id}", "/opt/app/{_id}", "/var/lib/app/{_id}"]
     );
+}
+
+/// The Server fills `{key}` in every word it runs, scripts included, so a
+/// built-in script that writes `${database}` would get `$shop` instead.
+#[test]
+fn no_built_in_copy_script_names_a_setting_the_shell_way() {
+    for definition in beatbox_server::builtins() {
+        let Some(data) = &definition.data else {
+            continue;
+        };
+        for word in data.dump.iter().chain(&data.load).flatten() {
+            for key in definition.configuration.keys() {
+                assert!(
+                    !word.contains(&format!("${{{key}}}")),
+                    "{}: ${{{key}}} would be filled by the Server",
+                    definition.id
+                );
+            }
+        }
+    }
 }

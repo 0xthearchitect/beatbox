@@ -104,7 +104,12 @@ pub fn actions() -> Vec<ActionSpec> {
     vec![
         ActionSpec::new(
             "network.attach",
-            vec![need("node", Text), may("address", Text), may("at", Text)],
+            vec![
+                need("node", Text),
+                may("address", Text),
+                may("at", Text),
+                may("renew", Kind::Bool),
+            ],
             vec![
                 need("node", Text),
                 need("address", Text),
@@ -1166,10 +1171,32 @@ impl NetworkSandbox {
                 .map(str::to_owned)
         };
         let name = text(action, "node");
+        if action.argument("renew").and_then(Value::as_bool) == Some(true) {
+            return self.renew(&name);
+        }
         let done = self.attach_node(name.clone(), argument("address"), argument("at"))?;
         // A virtual machine or the Server's: other places show its address,
         // so it stays its own when what the router hands out changes.
         self.net()?.reserved.insert(name);
+        Ok(done)
+    }
+
+    /// The same cable on another UDP port, for a guest whose kept one some
+    /// other program took while it was off. Its address, place and groups
+    /// stay. A file never needs it.
+    fn renew(&mut self, name: &str) -> Result<Data, ProviderError> {
+        let switch = self.switch_port();
+        let mut net = self.net()?;
+        let Some(at) = net.nodes.iter().position(|node| node.name == name) else {
+            return Err(refused(reason!("network.no_such_node", node = name)));
+        };
+        if let Port::Udp(_) = net.nodes[at].port {
+            let port = self.node_port(&net, name)?;
+            net.nodes[at].port = port;
+        }
+        let done = attachment(&net, &net.nodes[at], &switch);
+        drop(net);
+        self.save();
         Ok(done)
     }
 

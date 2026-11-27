@@ -191,7 +191,7 @@ export function FilePicker({ title, suffixes, filterLabel, start, onPick, onClos
 }
 
 /** Human sizes. Units are symbols, so no translation. */
-function bytes(size: number): string {
+export function bytes(size: number): string {
   if (size < 1024) return `${size} B`;
   const units = ['KB', 'MB', 'GB', 'TB'];
   let value = size / 1024;

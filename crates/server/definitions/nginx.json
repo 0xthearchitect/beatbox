@@ -23,6 +23,15 @@
     "nginx",
     "python3"
   ],
+  "apt": {
+    "packages": {
+      "nginx": "nginx",
+      "python3": "python3"
+    },
+    "keep_off": [
+      "nginx.service"
+    ]
+  },
   "configuration": {
     "mode": {
       "kind": "enum",

@@ -13,6 +13,7 @@ import { Settings } from './screens/Settings';
 import { Commands } from './screens/Commands';
 import { Watchers } from './screens/Watchers';
 import { Pen } from './screens/Pen';
+import { Programs } from './screens/Programs';
 import { NetworkFirewall, NetworkFlows, NetworkNames, NetworkOverview, NetworkRouter, NetworkTraffic } from './screens/Network';
 import { ServerServices } from './screens/Server';
 import { ServerLibrary, ServerSettings, ServerTry } from './screens/ServerMore';
@@ -29,6 +30,7 @@ export function App() {
     : route.id === 'host.commands' ? <Commands />
     : route.id === 'host.watchers' ? <Watchers />
     : route.id === 'host.pen' ? <Pen />
+    : route.id === 'host.programs' ? <Programs />
     : route.id === 'network.overview' ? <NetworkOverview />
     : route.id === 'network.router' ? <NetworkRouter />
     : route.id === 'network.names' ? <NetworkNames />

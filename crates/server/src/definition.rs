@@ -48,6 +48,14 @@ pub struct Definition {
     /// machine has them (`server.check`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<String>,
+    /// How to install what `requires` names on Debian and Ubuntu, for
+    /// `server.prepare`. A program it does not name is installed by hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub apt: Option<Apt>,
+    /// What is its data where it runs: what a copy holds and what removing
+    /// it with its data deletes. None: it keeps nothing worth a copy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<OwnData>,
     /// What it is configured with, by name.
     #[serde(default)]
     pub configuration: BTreeMap<String, Setting>,
@@ -68,6 +76,61 @@ pub struct Definition {
     /// What it can be asked to do through `service.call`.
     #[serde(default)]
     pub capabilities: Vec<ServiceCapability>,
+}
+
+/// The Debian packages that bring a definition's programs.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Apt {
+    /// Program, from `requires` -> the package that has it.
+    pub packages: BTreeMap<String, String>,
+    /// The packages' own systemd units, kept off once installed: the Server
+    /// runs its own copy, and theirs would hold its port.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keep_off: Vec<String>,
+}
+
+/// A service's data where it runs.
+///
+/// Without `dump`, a copy is its `paths` packed with the service stopped.
+/// A database copies itself while it runs instead: `dump` writes the copy to
+/// `{_copy}` and prints `made_with=<version>`; `load` puts `{_copy}` back,
+/// told `{_made_with}`, and leaves the data as it was when it fails.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OwnData {
+    /// Absolute folders or files, each under a `{_id}` segment of its own.
+    pub paths: Vec<String>,
+    /// The program that copies it while it runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dump: Option<Vec<String>>,
+    /// The program that puts a copy back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub load: Option<Vec<String>>,
+}
+
+/// The placeholders only `dump` and `load` are given.
+pub const COPY_OWN: [&str; 2] = ["_copy", "_made_with"];
+
+/// A Debian package name: lowercase letters, digits and `+-.`, two or more,
+/// starting with a letter or digit. Never read as an option.
+pub fn is_package(text: &str) -> bool {
+    text.len() >= 2
+        && text.len() <= 100
+        && text.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && text
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "+-.".contains(c))
+}
+
+/// A systemd unit name. Never read as an option, nor a pattern.
+pub fn is_unit(text: &str) -> bool {
+    !text.is_empty()
+        && text.len() <= 100
+        && text.starts_with(|c: char| c.is_ascii_alphanumeric())
+        && text
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "@_.-".contains(c))
 }
 
 /// What runs a service.
@@ -539,6 +602,54 @@ impl Definition {
         {
             return wrong(format!("{odd:?} is not a program it can require"));
         }
+        if let Some(apt) = &self.apt {
+            if self.is_internal() {
+                return wrong("only a process service installs packages".into());
+            }
+            for (program, package) in &apt.packages {
+                if !self.requires.contains(program) {
+                    return wrong(format!("{program:?} is installed but not required"));
+                }
+                if !is_package(package) {
+                    return wrong(format!("{package:?} is not a package name"));
+                }
+            }
+            if let Some(odd) = apt.keep_off.iter().find(|unit| !is_unit(unit)) {
+                return wrong(format!("{odd:?} is not a unit name"));
+            }
+        }
+        if let Some(data) = &self.data {
+            if self.is_internal() {
+                return wrong("only a process service has data in a machine".into());
+            }
+            if data.paths.is_empty() {
+                return wrong("its data needs at least one path".into());
+            }
+            // Its own and nothing else: a copy or a delete never reaches
+            // past its `{_id}` folder.
+            if let Some(odd) = data.paths.iter().find(|path| {
+                !path.starts_with('/')
+                    || path.contains('\\')
+                    || path
+                        .split('/')
+                        .any(|segment| segment == ".." || segment == ".")
+                    || !path.split('/').any(|segment| segment == "{_id}")
+            }) {
+                return wrong(format!("{odd:?} is not a path of its own"));
+            }
+            match (&data.dump, &data.load) {
+                (None, None) => {}
+                (Some(dump), Some(load)) if !dump.is_empty() && !load.is_empty() => {
+                    if ![dump, load]
+                        .iter()
+                        .all(|argv| argv.iter().any(|word| word.contains("{_copy}")))
+                    {
+                        return wrong("its dump and load must name {_copy}".into());
+                    }
+                }
+                _ => return wrong("its data needs both dump and load, or neither".into()),
+            }
+        }
         if !is_id(&self.id) {
             return wrong("its id must be lowercase letters, digits and '-', at most 40".into());
         }
@@ -605,6 +716,24 @@ impl Definition {
         for text in self.templated() {
             if let Some(orphan) = placeholders(text).into_iter().find(|p| !known.contains(p)) {
                 return wrong(format!("{{{orphan}}} names nothing it is configured with"));
+            }
+        }
+        if let Some(data) = &self.data {
+            let copying: BTreeSet<&str> = known.iter().copied().chain(COPY_OWN).collect();
+            let texts = data.paths.iter().map(|path| (path, &known));
+            let runs = data
+                .dump
+                .iter()
+                .chain(&data.load)
+                .flatten()
+                .map(|word| (word, &copying));
+            for (text, allowed) in texts.chain(runs) {
+                if let Some(orphan) = placeholders(text)
+                    .into_iter()
+                    .find(|p| !allowed.contains(p))
+                {
+                    return wrong(format!("{{{orphan}}} names nothing it is configured with"));
+                }
             }
         }
         for interface in &self.interfaces {

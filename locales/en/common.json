@@ -79,5 +79,6 @@
   "beatbox.switcher.waiting_network": "Waiting for its network",
   "beatbox.nav.try": "Try it",
   "beatbox.nav.library": "Library",
-  "beatbox.nav.names": "Names and addresses"
+  "beatbox.nav.names": "Names and addresses",
+  "beatbox.nav.programs": "Programs"
 }

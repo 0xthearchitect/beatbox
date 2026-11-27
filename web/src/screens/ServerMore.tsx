@@ -64,14 +64,45 @@ interface Tried {
 }
 
 /** Where a try can start from: a running VM, or a light PC on the server's network. */
-interface Source { value: string; name: string; light: boolean; id: string }
+export interface Source { value: string; name: string; light: boolean; id: string }
+
+/**
+ * The machines a service can be tried from: the other running VMs, and the
+ * light PCs of the Server's network. A network that is off still lists its
+ * light PCs, so a check can say the network is what is missing.
+ */
+export function useSources(srv: Server) {
+  const hosts = useOthers('host');
+  const uses = bag(srv.server?.config.uses);
+  const network = text(uses.network);
+  const networks = useOthers('network');
+  const networkState = networks.find((each) => each.id === network)?.lifecycle;
+  const [lights, setLights] = useState<string[]>([]);
+  // Light PCs live as long as their network. Re-list when it changes state.
+  useEffect(() => {
+    setLights([]);
+    if (!network) return;
+    void call('sandbox.refresh', { id: network })
+      .then((view) => setLights(rows(bag(view.state.facts).nodes).filter((node) => node.light).map((node) => text(node.node))),
+        () => undefined);
+  }, [network, networkState]);
+  const sources: Source[] = [
+    ...hosts.filter((host) => host.lifecycle === 'running' && host.id !== uses.host)
+      .map((host) => ({ value: `host:${host.id}`, name: host.name, light: false, id: host.id })),
+    ...lights.map((node) => ({ value: `light:${node}`, name: node, light: true, id: node })),
+  ];
+  return {
+    sources, hosts, network, networkState,
+    networkName: networks.find((each) => each.id === network)?.name ?? '',
+  };
+}
 
 /**
  * The same probe, run from a light PC's terminal (crates/network/src/light.rs):
  * curl for a page, nslookup for a name, nc for a port, and the SMTP greeting
  * for email.
  */
-async function fromLight(network: string, node: string, kind: string, end: Endpoint, name: string) {
+export async function fromLight(network: string, node: string, kind: string, end: Endpoint, name: string) {
   const line = kind === 'http' ? `curl http://${end.address}:${end.port}/`
     : kind === 'dns' ? `nslookup ${name}` : `nc ${end.address} ${end.port}`;
   const started = Date.now();
@@ -105,24 +136,10 @@ function databaseSaid(code: string): string {
 
 /** Try the service from another machine, like a real user would. */
 export function FromElsewhere({ srv, service }: { srv: Server; service: Service }) {
-  const hosts = useOthers('host');
+  const { sources, hosts, network, networkState } = useSources(srv);
   const uses = bag(srv.server?.config.uses);
-  const network = text(uses.network);
-  // Light PCs live as long as their network. Re-list when it changes state.
-  const [lights, setLights] = useState<string[]>([]);
-  const networkState = useOthers('network').find((each) => each.id === network)?.lifecycle;
-  useEffect(() => {
-    setLights([]);
-    if (!network || networkState !== 'running') return;
-    void call('sandbox.refresh', { id: network })
-      .then((view) => setLights(rows(bag(view.state.facts).nodes).filter((node) => node.light).map((node) => text(node.node))),
-        () => undefined);
-  }, [network, networkState]);
-  const machines: Source[] = [
-    ...hosts.filter((host) => host.lifecycle === 'running' && host.id !== uses.host)
-      .map((host) => ({ value: `host:${host.id}`, name: host.name, light: false, id: host.id })),
-    ...lights.map((node) => ({ value: `light:${node}`, name: node, light: true, id: node })),
-  ];
+  // A light PC can only try while its network runs.
+  const machines = sources.filter((source) => !source.light || networkState === 'running');
   const [from, setFrom] = useState('');
   const [name, setName] = useState('intranet.lab');
   const [busy, setBusy] = useState(false);

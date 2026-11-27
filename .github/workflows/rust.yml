@@ -37,9 +37,9 @@ jobs:
         run: cargo test -p beatbox-frame -p beatbox-network -p beatbox-server --locked
         env:
           BEATBOX_NETWORK_WIRE: udp
-      - name: A Server and a real QEMU over UDP cables
+      - name: A Server, a real QEMU and a taken port over UDP cables
         if: runner.os == 'Linux'
-        run: cargo test -p beatbox-api --test server_internal --test qemu_cable --locked
+        run: cargo test -p beatbox-api --test server_internal --test qemu_cable --test recable --locked
         env:
           BEATBOX_NETWORK_WIRE: udp
 

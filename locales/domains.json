@@ -50,7 +50,8 @@
     "commands",
     "watchers",
     "processes",
-    "pen"
+    "pen",
+    "programs"
   ],
   "network": [
     "net",

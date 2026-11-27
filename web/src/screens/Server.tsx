@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, Icon, Info, Modal, PortInput, RenameTitle, Select, Switch, validPort, type IconName } from '../components';
 import { call, on } from '../bridge/client';
 import type { ReasonView, SandboxSummary } from '../bridge/types';
@@ -6,6 +6,12 @@ import { remember, useChosen } from '../chosen';
 import { fault, say, t, runtimeText } from '../i18n';
 import { navigate, useRouteParams } from '../router';
 import { Asks, FromElsewhere } from './ServerMore';
+import { Prepare } from './ServerPrepare';
+import { AddProgram, useRecipes } from './Programs';
+import type { Program } from './Programs';
+import { Copies, useCopies } from './ServerCopies';
+import { LogLines, Why, told as toldOf, useDiary, useNames } from './ServerWhy';
+import { bytes } from '../components/FilePicker';
 import { sampleAddress } from '../network';
 import { clock } from './MachineParts';
 
@@ -61,6 +67,8 @@ export interface Definition {
   interfaces: { transport: string; port: unknown; protocol?: string | null }[];
   /** Programs the machine must have for it to run. */
   requires?: string[];
+  /** The Debian package for each program BeatBox can install. */
+  apt?: { packages: Record<string, string>; keep_off?: string[] };
   /** Every argv it can run and file it writes, placeholders left as they are. */
   runs?: {
     command: string[] | null; directory: string | null; prepare: string[] | null; files: string[];
@@ -259,6 +267,11 @@ export function useOthers(type: string) {
   return list;
 }
 
+/** Recipes for programs the Host can add, so a missing one gets an Add. */
+const Recipes = createContext<{ recipeFor: (command: string) => Program | undefined; add: (command: string, service: string) => void }>({
+  recipeFor: () => undefined, add: () => undefined,
+});
+
 /* ── the page ─────────────────────────────────────────────────────────── */
 
 export function ServerServices() {
@@ -273,19 +286,48 @@ export function ServerServices() {
   // One check for the strip and the service panel: two copies drifted apart
   // for seconds after "Turn on", and the panel kept saying the machine was off.
   const checked = useCheck(srv);
+  // Which service the Prepare dialog is for, and whether it opens on doing it by hand.
+  const [preparing, setPreparing] = useState<{ service: string; manual: boolean } | null>(null);
+  const prepare = (service: string, manual = false) => setPreparing({ service, manual });
+  const hostId = text(bag(srv.server?.config.uses).host);
+  const hostName = useOthers('host').find((row) => row.id === hostId)?.name ?? '';
+  const recipes = useRecipes(hostId);
+  const [programFor, setProgramFor] = useState<{ program: Program; service: string } | null>(null);
+  const recipeFor = useCallback((command: string) => recipes.find((recipe) => recipe.command === command), [recipes]);
+  const shared = useMemo(() => ({
+    recipeFor,
+    add: (command: string, service: string) => {
+      const program = recipeFor(command);
+      if (program) setProgramFor({ program, service });
+    },
+  }), [recipeFor]);
 
   if (making || (srv.list && !srv.list.length)) return <NewServer />;
   if (!srv.server) return null;
   return (
+    <Recipes.Provider value={shared}>
     <div className="bb-srv-ov">
       <Top srv={srv} onAdd={() => setAdding('')} />
       {srv.told ? <p className="bb-sbx-no" style={{ margin: 0 }}>{srv.told}</p> : null}
-      <Helpers srv={srv} checked={checked} />
+      <Helpers srv={srv} checked={checked} onPrepare={prepare} />
       {srv.services === null ? null
-        : srv.services.length ? <Board srv={srv} check={checked.check} />
+        : srv.services.length ? <Board srv={srv} check={checked.check} onPrepare={prepare} />
         : <Empty srv={srv} onPick={(definition) => setAdding(definition)} />}
-      {adding !== null ? <AddService srv={srv} start={adding} onClose={closeAdding} /> : null}
+      {adding !== null ? <AddService srv={srv} start={adding} check={checked.check} onClose={closeAdding} /> : null}
+      {preparing ? <Prepare srv={srv} service={preparing.service} manual={preparing.manual}
+                            onClose={() => setPreparing(null)} onChecked={checked.recheck} /> : null}
+      {programFor ? (
+        <AddProgram hostId={hostId} machine={hostName} program={programFor.program}
+                    then={{
+                      words: t('beatbox.programs.dialog.can_start', { service: programFor.service }),
+                      action: t('beatbox.srv.why.put_to_work', { other: programFor.service }),
+                      run: async () => { await act(srv.id, 'service.start', { service: programFor.service }); await srv.load(); },
+                    }}
+                    onAdded={() => void checked.recheck()}
+                    onClose={() => setProgramFor(null)} />
+      ) : null}
     </div>
+    </Recipes.Provider>
   );
 }
 
@@ -338,12 +380,15 @@ function Top({ srv, onAdd }: { srv: Server; onAdd: () => void }) {
  * machine — server — network in one line. What's fine hides in the hover;
  * each problem gets its own line with the button that fixes it.
  */
-function Helpers({ srv, checked: { check, recheck } }: { srv: Server; checked: ReturnType<typeof useCheck> }) {
+function Helpers({ srv, checked: { check, recheck }, onPrepare }: {
+  srv: Server; checked: ReturnType<typeof useCheck>; onPrepare: (service: string, manual?: boolean) => void;
+}) {
   const hosts = useOthers('host');
   const networks = useOthers('network');
   const uses = bag(srv.server?.config.uses);
   const apart = useApart(text(uses.host), text(uses.network));
   const [busy, setBusy] = useState('');
+  const { recipeFor, add } = useContext(Recipes);
   const hostName = hosts.find((row) => row.id === uses.host)?.name ?? '';
   const networkName = networks.find((row) => row.id === uses.network)?.name ?? '';
   const hostState = check?.host?.state ?? hosts.find((row) => row.id === uses.host)?.lifecycle;
@@ -384,7 +429,13 @@ function Helpers({ srv, checked: { check, recheck } }: { srv: Server; checked: R
   if (uses.host && uses.network && apart) issues.push({ key: 'cable', tone: 'no', words: t('beatbox.srv.helpers.cable_no', { network: networkName }), action: openButton });
   if (hostOn && check?.host && !check.host.agent) issues.push({ key: 'agent', tone: 'no', words: t('beatbox.srv.helpers.agent_no'), action: openButton });
   if (hostOn && check?.host) for (const [program, who] of missing) {
-    issues.push({ key: program, tone: 'warn', words: t('beatbox.srv.helpers.missing', { program, services: who.join(', ') }), action: openButton });
+    const service = services.find((each) => each.name === who[0]);
+    const installs = Boolean(srv.catalog.find((each) => each.id === service?.definition)?.apt?.packages[program]);
+    const recipe = installs ? undefined : recipeFor(program);
+    issues.push({ key: program, tone: 'warn', words: t('beatbox.srv.helpers.missing', { program, services: who.join(', ') }),
+      action: recipe
+        ? <Button size="sm" variant="primary" onClick={() => add(program, who[0]!)}>{t('beatbox.programs.add_named', { name: recipe.name })}</Button>
+        : <Button size="sm" variant="primary" onClick={() => onPrepare(who[0]!, !installs)}>{t(installs ? 'beatbox.srv.prep.do' : 'beatbox.srv.prep.myself')}</Button> });
   }
   if (!uses.network) issues.push({ key: 'no-network', tone: 'off', words: t('beatbox.srv.helpers.none_network') });
   // No state yet means a page that just opened, not a network that is off.
@@ -439,33 +490,13 @@ function Spark({ seen }: { seen: string[] }) {
   );
 }
 
-/** The last few service events, in words. Hidden when there are none. */
+/** The last few things that happened here, in words. Hidden when there are none. */
 function Lately({ srv }: { srv: Server }) {
-  const [said, setSaid] = useState<{ at: string; tone: string; text: string }[]>([]);
-  const load = useCallback(async () => {
-    try {
-      const all = await call('sandbox.events', { since: 0 });
-      const mine = all.filter((event) => event.sandboxId === srv.id && event.name.startsWith('service.')).slice(-40);
-      const words = mine.flatMap((event) => {
-        const data = bag(event.data);
-        const service = text(data.service);
-        const at = clock(new Date(event.at));
-        if (event.name === 'service.health.changed') {
-          if (data.to === 'unknown') return [];
-          return [{ at, tone: data.to === 'healthy' ? 'mint' : 'amber', text: runtimeText(`beatbox.srv.lately.${data.to === 'healthy' ? 'answers' : 'silent'}`, { service }) }];
-        }
-        if (event.name === 'service.restarting') {
-          return [{ at, tone: 'amber', text: t('beatbox.srv.lately.restarting', { service, attempt: Number(data.attempt ?? 1) }) }];
-        }
-        const known = ['started', 'stopped', 'failed', 'created', 'removed'].find((each) => event.name === `service.${each}`);
-        if (!known) return [];
-        return [{ at, tone: known === 'failed' ? 'rose' : known === 'started' ? 'mint' : 'neutral', text: runtimeText(`beatbox.srv.lately.${known}`, { service }) }];
-      });
-      setSaid(words.slice(-6).reverse());
-    } catch { /* nothing to show */ }
-  }, [srv.id]);
-  useEffect(() => { void load(); }, [load]);
-  useEffect(() => on('sandbox', (event) => { if (event.sandboxId === srv.id && event.name.startsWith('service.')) void load(); }), [srv.id, load]);
+  const names = useNames();
+  const said = useDiary(srv).flatMap((entry) => {
+    const words = toldOf(entry, names);
+    return words ? [{ at: clock(new Date(entry.at)), ...words }] : [];
+  }).slice(-6).reverse();
   if (!said.length) return null;
   return (
     <section className="bb-srv-events" aria-labelledby="bb-srv-lately">
@@ -481,7 +512,7 @@ function Lately({ srv }: { srv: Server }) {
 
 /* ── the services ─────────────────────────────────────────────────────── */
 
-function Board({ srv, check }: { srv: Server; check: Check | null }) {
+function Board({ srv, check, onPrepare }: { srv: Server; check: Check | null; onPrepare: (service: string, manual?: boolean) => void }) {
   const services = srv.services!;
   const [chosen, setChosen] = useState(services[0]!.name);
   const picked = services.find((service) => service.name === chosen) ?? services[0]!;
@@ -491,19 +522,21 @@ function Board({ srv, check }: { srv: Server; check: Check | null }) {
         <h2 id="bb-srv-board">{t('beatbox.srv.board.title')}</h2>
         <div className="bb-srv-blks">
           {services.map((service) => (
-            <Block key={service.name} srv={srv} service={service} on={service.name === picked.name} onPick={() => setChosen(service.name)} />
+            <Block key={service.name} srv={srv} service={service} check={check} on={service.name === picked.name} onPick={() => setChosen(service.name)} />
           ))}
         </div>
       </section>
-      <Side srv={srv} service={picked} check={check} />
+      <Side srv={srv} service={picked} check={check} onPrepare={onPrepare} onPick={setChosen} />
       <Lately srv={srv} />
     </div>
   );
 }
 
-function Block({ srv, service, on: picked, onPick }: { srv: Server; service: Service; on: boolean; onPick: () => void }) {
+function Block({ srv, service, check, on: picked, onPick }: { srv: Server; service: Service; check: Check | null; on: boolean; onPick: () => void }) {
   const definition = srv.catalog.find((each) => each.id === service.definition);
   const how = mood(service);
+  const frozen = check?.host?.state === 'paused';
+  const lacks = missingFor(definition, check);
   const internal = definition?.runtime === 'internal';
   const serverOff = srv.server?.state.lifecycle !== 'running';
   return (
@@ -514,10 +547,11 @@ function Block({ srv, service, on: picked, onPick }: { srv: Server; service: Ser
       </span>
       <small>{kindOf(definition, service.definition)}</small>
       {service.after.length ? <small className="bb-srv-blkafter">{t('beatbox.srv.after.short', { names: service.after.join(', ') })}</small> : null}
-      {how === 'ok' && service.endpoints.length ? <span className="bb-mono">{reach(service, undefined, srv.domain)}</span>
+      {how !== 'ok' && lacks.length ? <span className="bb-srv-blkneeds">{t('beatbox.srv.prep.needs', { programs: lacks.join(', ') })}</span>
+        : how === 'ok' && service.endpoints.length ? <span className="bb-mono">{reach(service, undefined, srv.domain)}</span>
         : how === 'ok' ? <span className="bb-faint">{t('beatbox.srv.foot.no_address')}</span>
         : how === 'stopped' && service.wanted && serverOff ? <span className="bb-faint">{t('beatbox.srv.foot.server_off')}</span>
-        : how === 'stopped' && service.wanted ? <span className="bb-faint">{t(internal ? 'beatbox.srv.foot.was_running_network' : 'beatbox.srv.foot.was_running')}</span>
+        : how === 'stopped' && service.wanted ? <span className="bb-faint">{t(internal ? 'beatbox.srv.foot.was_running_network' : frozen ? 'beatbox.srv.foot.frozen' : 'beatbox.srv.foot.was_running')}</span>
         : <span className="bb-faint">{runtimeText(`beatbox.srv.foot.${how}`)}</span>}
       <Spark seen={srv.history.get(service.name) ?? []} />
     </button>
@@ -528,15 +562,18 @@ function Block({ srv, service, on: picked, onPick }: { srv: Server; service: Ser
  * The picked service. Left: what happened, address, Try from, More.
  * Right: its log, always, even empty -- otherwise half the panel sits empty.
  */
-function Side({ srv, service, check }: { srv: Server; service: Service; check: Check | null }) {
+function Side({ srv, service, check, onPrepare, onPick }: {
+  srv: Server; service: Service; check: Check | null; onPrepare: (service: string, manual?: boolean) => void; onPick: (service: string) => void;
+}) {
   const [lines, setLines] = useState<string[]>([]);
   const [described, setDescribed] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
   const [told, setTold] = useState('');
   const [copied, setCopied] = useState('');
-  const [editing, setEditing] = useState<{ definition: Definition; service: Service } | null>(null);
+  const [editing, setEditing] = useState<{ definition: Definition; service: Service; restart: boolean } | null>(null);
   const definition = srv.catalog.find((each) => each.id === service.definition);
+  const machine = useOthers('host').find((each) => each.id === bag(srv.server?.config.uses).host)?.name ?? '';
   const how = mood(service);
   const live = how === 'ok' || how === 'slow';
   const problem = how === 'slow' ? t('beatbox.srv.problem.slow')
@@ -549,10 +586,15 @@ function Side({ srv, service, check }: { srv: Server; service: Service; check: C
   // Log: every 5s while it runs and the page is visible. Once if it failed.
   useEffect(() => {
     if (!live && how !== 'failed') return;
+    // One read at a time: a slow machine must not pile up reads behind
+    // every other action on this Server.
+    let reading = false;
     const read = () => {
-      if (document.hidden) return;
-      void act(srv.id, 'service.logs', { service: service.name, lines: 8 })
-        .then((said) => setLines(Array.isArray(said.lines) ? said.lines.map(String) : []), () => setLines([]));
+      if (document.hidden || reading) return;
+      reading = true;
+      void act(srv.id, 'service.logs', { service: service.name, lines: 60 })
+        .then((said) => setLines(Array.isArray(said.lines) ? said.lines.map(String) : []), () => setLines([]))
+        .finally(() => { reading = false; });
     };
     read();
     if (!live) return;
@@ -576,21 +618,30 @@ function Side({ srv, service, check }: { srv: Server; service: Service; check: C
     setAsking(false);
   }
 
-  async function edit() {
+  /** `restart`: stop it to edit, and start it again when the editor closes. */
+  async function edit(restart = false) {
     setBusy(true);
     setTold('');
     try {
+      if (restart) await act(srv.id, 'service.stop', { service: service.name });
       const current = await act(srv.id, 'service.describe', { service: service.name });
       const saved = bag(current.definition);
       setEditing({
         definition: { ...saved, runtime: text(bag(saved.runtime).type) } as unknown as Definition,
         service: { ...service, config: bag(current.config) },
+        restart,
       });
     } catch (error) {
       setTold(fault(error));
     } finally {
       setBusy(false);
     }
+  }
+
+  function closeEditor() {
+    const again = editing?.restart;
+    setEditing(null);
+    if (again) void run('service.start');
   }
 
   const primary = how === 'stopped' ? ['service.start', 'beatbox.srv.do.start'] as const
@@ -600,11 +651,17 @@ function Side({ srv, service, check }: { srv: Server; service: Service; check: C
   const needs = needsOf(srv, definition, check);
   // Missing needs go in the problem box. The full list is under More.
   const lacking = needs.filter((need) => need.state === 'no');
-  // Its machine or network off: the box says so, and pressing would only say it again.
-  const waits = !live && lacking.some((need) => need.key === 'on' || need.key === 'net');
+  // BeatBox can install at least one of what is missing.
+  const installs = missingFor(definition, check).some((program) => definition?.apt?.packages[program]);
+  const { recipeFor, add } = useContext(Recipes);
+  const addable = installs ? undefined : missingFor(definition, check).map(recipeFor).find(Boolean);
+  // Something it needs is missing: the box says so, and pressing would only say it again.
+  const waits = !live && lacking.length > 0;
   const running = service.state === 'running';
   const outdated = definition && service.definitionVersion && definition.version !== service.definitionVersion;
   const logged = live || how === 'failed';
+  // Not answering, and nothing missing to say instead: the Why section asks.
+  const asks = (how === 'slow' || how === 'failed') && !lacking.length;
 
   return (
     <section className="bb-srv-side" aria-labelledby="bb-srv-side">
@@ -627,17 +684,27 @@ function Side({ srv, service, check }: { srv: Server; service: Service; check: C
 
       <div className="bb-srv-sidebody">
         <div className="bb-srv-sidemain">
-          {problem || lacking.length ? (
+          {asks ? <Why key={`why-${service.name}`} srv={srv} service={service} kind={kindOf(definition, service.definition)}
+                       machine={machine} lines={lines} onOpen={onPick} onEdit={() => void edit(true)} /> : null}
+          {!asks && (problem || lacking.length) ? (
             <div className={`bb-srv-problem is-${how === 'slow' ? 'slow' : 'failed'}`}>
               <b>{t(problem ? 'beatbox.srv.what_happened' : 'beatbox.srv.reqs.title')}</b>
               {problem ? <span>{problem}</span> : null}
               {lacking.length ? (
                 <div className="bb-srv-lacking">
                   <ul className="bb-srv-checks">{lacking.map((need) => <li key={need.key} className="no">{need.words}</li>)}</ul>
-                  {lacking.some((need) => need.key !== 'net') ? (
+                  {lacking.some((need) => need.key === 'on' || need.key === 'agent') ? (
                     <Button size="sm" icon="arrow" onClick={() => { remember('host', text(bag(srv.server?.config.uses).host)); navigate('host/machine'); }}>
                       {t('beatbox.srv.helpers.open_machine')}
                     </Button>
+                  ) : lacking.some((need) => need.key !== 'net') ? (
+                    <span className="bb-srv-moves">
+                      <Button size="sm" variant={installs || addable ? undefined : 'primary'} onClick={() => onPrepare(service.name, true)}>{t('beatbox.srv.prep.myself')}</Button>
+                      {installs ? <Button size="sm" variant="primary" onClick={() => onPrepare(service.name)}>{t('beatbox.srv.prep.do')}</Button> : null}
+                      {addable ? (
+                        <Button size="sm" variant="primary" onClick={() => add(addable.command, service.name)}>{t('beatbox.programs.add_named', { name: addable.name })}</Button>
+                      ) : null}
+                    </span>
                   ) : null}
                 </div>
               ) : null}
@@ -678,6 +745,8 @@ function Side({ srv, service, check }: { srv: Server; service: Service; check: C
 
           {live ? <FromElsewhere key={`from-${service.name}`} srv={srv} service={service} /> : null}
 
+          <Copies key={`copies-${service.name}`} srv={srv} service={service} />
+
           <details className="bb-srv-more">
             <summary>{t('beatbox.srv.side.more')}</summary>
             <div className="bb-srv-stack">
@@ -716,7 +785,7 @@ function Side({ srv, service, check }: { srv: Server; service: Service; check: C
         {logged ? (
           <div className="bb-srv-sidelog">
             <small className={live ? 'is-live' : undefined}>{t(live ? 'beatbox.srv.live_log' : 'beatbox.srv.side.last_log')}</small>
-            {lines.length ? <pre className="bb-srv-log">{lines.join('\n')}</pre>
+            {lines.length ? <LogLines lines={lines} last={8} />
               : <div className="bb-srv-log bb-srv-log--empty">{t('beatbox.srv.side.no_log')}</div>}
           </div>
         ) : null}
@@ -725,10 +794,10 @@ function Side({ srv, service, check }: { srv: Server; service: Service; check: C
       {asking ? <Remove srv={srv} service={service} busy={busy} onClose={() => setAsking(false)}
                          onRemove={(deleteData) => void run('service.remove', { delete_data: deleteData })} /> : null}
       {editing ? <Modal title={t('beatbox.srv.edit.title', { name: service.name })} icon="pencil" width={720}
-                        onClose={() => setEditing(null)}>
+                        onClose={closeEditor}>
         <div className="bb-srv-modal">
           <Configure srv={srv} definition={editing.definition} service={editing.service}
-                     onBack={() => setEditing(null)} onDone={() => setEditing(null)} />
+                     onBack={closeEditor} onDone={closeEditor} />
         </div>
       </Modal> : null}
     </section>
@@ -758,6 +827,11 @@ function needsOf(srv: Server, definition: Definition | undefined, check: Check |
       words: t('beatbox.srv.reqs.program', { program }),
     })),
   ];
+}
+
+/** The programs it needs that the check found missing on its machine. */
+function missingFor(definition: Definition | undefined, check: Check | null): string[] {
+  return (definition?.requires ?? []).filter((program) => check?.host?.programs[program] === false);
 }
 
 function Needs({ needs }: { needs: Need[] }) {
@@ -852,6 +926,8 @@ function Remove({ srv, service, busy, onClose, onRemove }: {
 }) {
   const [data, setData] = useState<string[] | null>(null);
   const [drop, setDrop] = useState(false);
+  const { listed } = useCopies(srv, service.name);
+  const kept = listed ? listed.copies.length + listed.unfinished.length : 0;
   useEffect(() => {
     void act(srv.id, 'service.describe', { service: service.name })
       .then((said) => setData(Array.isArray(said.data) ? said.data.map(String) : []), () => setData([]));
@@ -868,7 +944,7 @@ function Remove({ srv, service, busy, onClose, onRemove }: {
       <div className="bb-srv-modal">
       {data?.length ? (
         <fieldset className="bb-srv-radios">
-          <legend>{t('beatbox.srv.remove.data')}</legend>
+          <legend>{listed?.size ? t('beatbox.srv.remove.data_size', { size: bytes(listed.size) }) : t('beatbox.srv.remove.data')}</legend>
           <label className={`bb-srv-radio${!drop ? ' on' : ''}`}>
             <input type="radio" name="bb-srv-data" checked={!drop} onChange={() => setDrop(false)} />
             <span><b>{t('beatbox.srv.remove.keep')}</b><small>{t('beatbox.srv.remove.keep_what')}</small></span>
@@ -880,6 +956,9 @@ function Remove({ srv, service, busy, onClose, onRemove }: {
           {drop ? <pre className="bb-srv-log" style={{ margin: 0 }}>{data.join('\n')}</pre> : null}
         </fieldset>
       ) : <p style={{ margin: 0 }}>{t('beatbox.srv.remove.nothing')}</p>}
+      {kept ? (
+        <div className="bb-prep-box is-ok bb-prep-row"><Icon name="check" size="sm" /><span>{t('beatbox.srv.remove.copies_stay', { count: kept })}</span></div>
+      ) : null}
       </div>
     </Modal>
   );
@@ -931,7 +1010,7 @@ const suggested = (definition: Definition) =>
   (iconOf(definition) === 'globe' ? t('beatbox.srv.suggest.web')
     : iconOf(definition) === 'book' ? t('beatbox.srv.suggest.names') : definition.id);
 
-function AddService({ srv, start, onClose }: { srv: Server; start: string; onClose: () => void }) {
+function AddService({ srv, start, check, onClose }: { srv: Server; start: string; check: Check | null; onClose: () => void }) {
   const [picked, setPicked] = useState<Definition | null>(srv.catalog.find((each) => each.id === start) ?? null);
   // ?add= can arrive before the catalog. Pick it up once it loads.
   useEffect(() => {
@@ -950,9 +1029,9 @@ function AddService({ srv, start, onClose }: { srv: Server; start: string; onClo
                 <span className="bb-srv-icon"><Icon name={iconOf(definition)} size="lg" /></span>
                 <b>{kindOf(definition, definition.id)}</b>
                 <small className="bb-srv-kindabout" title={aboutOf(definition, definition.id)}>{aboutOf(definition, definition.id)}</small>
-                <small className="bb-faint">{!ready(definition) ? whyNot(definition)
+                <Readiness definition={definition} check={check} why={!ready(definition) ? whyNot(definition)
                   : definition.source === 'library' ? t('beatbox.srv.source.library')
-                  : t(definition.runtime === 'internal' ? 'beatbox.srv.runs.inside' : 'beatbox.srv.runs.machine')}</small>
+                  : t(definition.runtime === 'internal' ? 'beatbox.srv.runs.inside' : 'beatbox.srv.runs.machine')} />
               </button>
             ))}
           </div>
@@ -960,6 +1039,25 @@ function AddService({ srv, start, onClose }: { srv: Server; start: string; onClo
       )}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * What a kind needs on this server's machine, from the check the page
+ * already made: ready, missing what BeatBox can install, or missing what
+ * only a person can. Without a check, where it runs.
+ */
+function Readiness({ definition, check, why }: { definition: Definition; check: Check | null; why: string }) {
+  const known = definition.runtime !== 'internal' && check?.host?.state === 'running' && check.host.agent;
+  if (!known) return <small className="bb-faint">{why}</small>;
+  const missing = missingFor(definition, check);
+  if (!missing.length) return <small className="bb-srv-ready is-ok">{t('beatbox.srv.prep.tag_ready')}</small>;
+  const { recipeFor } = useContext(Recipes);
+  const installs = missing.every((program) => definition.apt?.packages[program] || recipeFor(program));
+  return (
+    <small className={`bb-srv-ready${installs ? ' is-can' : ''}`}>
+      {t(installs ? 'beatbox.srv.prep.tag_can' : 'beatbox.srv.prep.tag_yourself', { programs: missing.join(', ') })}
+    </small>
   );
 }
 

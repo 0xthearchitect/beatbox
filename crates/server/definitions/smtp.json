@@ -23,6 +23,11 @@
     "mailpit",
     "bash"
   ],
+  "data": {
+    "paths": [
+      "/var/lib/beatbox/{_id}"
+    ]
+  },
   "configuration": {
     "port": {
       "kind": "number",

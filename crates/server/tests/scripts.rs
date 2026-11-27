@@ -11,7 +11,10 @@ use std::os::unix::fs::PermissionsExt;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use beatbox_server::process::{ALIVE, CHECK_SECONDS, HTTP_CHECK, START, STOP, TCP_CHECK};
+use beatbox_server::process::{
+    ALIVE, APPEND, APPLY, CHECK_SECONDS, HTTP_CHECK, HTTP_SAID, INSTALL, LISTENING, PACK, PIECE,
+    PLAN, PREPARING, SIZE, STAGE, START, STOP, SUM, TCP_CHECK, UNPACK, UNSTAGE,
+};
 
 fn sh(script: &str, parameters: &[&str]) -> (i32, String) {
     let out = Command::new("/bin/sh")
@@ -135,6 +138,34 @@ fn start_check_and_stop_a_real_web_server() {
             "a big page is well"
         );
     }
+    let said = Command::new("timeout")
+        .args([
+            CHECK_SECONDS,
+            "bash",
+            "-c",
+            HTTP_SAID,
+            "bash",
+            &port,
+            "/index.html",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&said.stdout),
+        "code=200\n<h1>hello</h1>",
+        "the status, then the body without its headers"
+    );
+    if have("ss") {
+        let (code, listening) = sh(LISTENING, &[]);
+        assert_eq!(code, 0);
+        assert!(
+            listening
+                .lines()
+                .any(|line| line == format!("{port} {pid}")),
+            "its port, held by its pid: {listening}"
+        );
+        assert!(listening.contains("\n--\n"));
+    }
 
     assert_eq!(sh(STOP, &[&pid]).0, 0);
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -155,4 +186,95 @@ fn start_check_and_stop_a_real_web_server() {
     // Stopping what is already gone is not an error.
     assert_eq!(sh(STOP, &[&pid]).0, 0);
     let _ = std::fs::remove_dir_all(room);
+}
+
+/// The preparation scripts install as root on a guest, so here they are
+/// only read by `sh`, and the two that never change anything are run.
+#[test]
+fn the_preparation_scripts_parse_and_the_lookers_only_look() {
+    for script in [PLAN, APPLY, INSTALL, PREPARING] {
+        let parsed = Command::new("/bin/sh")
+            .args(["-n", "-c", script])
+            .status()
+            .unwrap();
+        assert!(parsed.success(), "sh cannot read:\n{script}");
+    }
+    let (code, said) = sh(PLAN, &["nginx"]);
+    assert_eq!(code, 0, "{said}");
+    assert!(said.starts_with("system="), "{said}");
+    let (code, said) = sh(PREPARING, &[]);
+    assert_eq!(code, 0, "{said}");
+    assert!(said.starts_with("state="), "{said}");
+}
+
+#[test]
+fn a_copy_packed_in_pieces_unpacks_over_what_changed() {
+    for script in [STAGE, PACK, SUM, PIECE, APPEND, UNPACK, UNSTAGE, SIZE] {
+        assert_eq!(sh(&format!("exit 0\n{script}"), &[]).0, 0, "{script}");
+    }
+    let definition: serde_json::Value =
+        serde_json::from_str(include_str!("../definitions/postgresql.json")).unwrap();
+    let dump = definition["data"]["dump"][2].as_str().unwrap();
+    let parsed = Command::new("bash")
+        .args(["-n", "-c", dump])
+        .status()
+        .unwrap();
+    assert!(parsed.success(), "PostgreSQL's copy script parses");
+
+    let root = std::env::temp_dir().join(format!("bbx-copy-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let data = root.join("data");
+    let stage = root.join("stage");
+    let back = root.join("back");
+    std::fs::create_dir_all(data.join("inner")).unwrap();
+    std::fs::create_dir_all(&stage).unwrap();
+    std::fs::create_dir_all(&back).unwrap();
+    std::fs::write(data.join("mail.db"), b"one message").unwrap();
+    std::fs::write(data.join("inner/note"), b"kept").unwrap();
+    let (data, stage, back) = (
+        data.to_str().unwrap(),
+        stage.to_str().unwrap(),
+        back.to_str().unwrap(),
+    );
+    let missing = format!("{data}-not-there");
+    assert_eq!(
+        sh(PACK, &[stage, data, &missing]).0,
+        0,
+        "a path not there is left out"
+    );
+    let (_, size) = sh(SIZE, &[data, &missing]);
+    assert!(size.trim().parse::<u64>().unwrap() > 0);
+    let copy = format!("{stage}/copy");
+    let (_, summed) = sh(SUM, &[&copy]);
+    assert!(summed.starts_with("bytes=") && summed.contains("\nsha="));
+
+    // Out a piece at a time, in again the same way.
+    let (_, piece) = sh(PIECE, &[&copy, "0"]);
+    std::fs::write(format!("{back}/piece"), piece).unwrap();
+    assert_eq!(sh(APPEND, &[back]).0, 0);
+    assert_eq!(sh(SUM, &[&format!("{back}/copy")]).1, summed);
+
+    std::fs::write(format!("{data}/mail.db"), b"two messages").unwrap();
+    std::fs::write(format!("{data}/extra"), b"new").unwrap();
+    assert_eq!(sh(UNPACK, &[back, data]).0, 0);
+    assert_eq!(
+        std::fs::read(format!("{data}/mail.db")).unwrap(),
+        b"one message"
+    );
+    assert_eq!(
+        std::fs::read(format!("{data}/inner/note")).unwrap(),
+        b"kept"
+    );
+    assert!(!std::path::Path::new(&format!("{data}/extra")).exists());
+    assert_eq!(
+        std::fs::read(format!("{back}/old{data}/mail.db")).unwrap(),
+        b"two messages",
+        "what was there waits in the stage"
+    );
+
+    // The stage is the only thing these ever create or delete.
+    assert_eq!(sh(STAGE, &[stage]).0, 2);
+    sh(UNSTAGE, &[stage]);
+    assert!(std::path::Path::new(stage).exists());
+    let _ = std::fs::remove_dir_all(&root);
 }

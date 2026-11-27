@@ -133,10 +133,30 @@ describe('runtime families and engine reasons', () => {
       assertKey(`beatbox.srv.start.${id}.what`, 'Server.tsx');
     }
     for (const word of all(/'(beatbox\.srv\.do\.\w+)'/g, screen)) assertKey(word, 'Server.tsx');
-    // The server's latest events, said by name.
+  });
+
+  test('every word the programs page computes exists', () => {
+    const screen = read('screens/Programs.tsx');
+    const recipes = JSON.parse(text(join(REPO, 'crates/host/programs.json')));
+    assert.ok(recipes.some((recipe) => recipe.id === 'mailpit'), 'the recipe scanner stopped finding them');
+    for (const recipe of recipes) assertKey(`beatbox.programs.what.${recipe.id}`, 'programs.json');
+    const groups = all(/'(\w+)'/g, screen.match(/const GROUPS = \[(.*?)\]/)[1]);
+    for (const group of new Set([...recipes.map((recipe) => recipe.group), ...groups])) assert.ok(groups.includes(group), `${group} has no filter`);
+    for (const filter of ['all', ...groups, 'yours']) assertKey(`beatbox.programs.filter.${filter}`, 'Programs.tsx');
+    for (const cannot of all(/'(\w+)'/g, screen.match(/cannot: (.*?) \| null/)[1])) assertKey(`beatbox.programs.cannot.${cannot}`, 'Programs.tsx');
+  });
+
+  test('every word the why section computes exists', () => {
+    const screen = read('screens/ServerWhy.tsx');
+    // The server's diary, said by name.
     const said = all(/'(\w+)'/g, screen.match(/const known = \[(.*?)\]/)[1]);
     assert.ok(said.includes('failed'), 'the event scanner stopped finding them');
-    for (const event of [...said, 'answers', 'silent']) assertKey(`beatbox.srv.lately.${event}`, 'Server.tsx');
+    for (const event of [...said, 'answers', 'silent']) assertKey(`beatbox.srv.lately.${event}`, 'ServerWhy.tsx');
+    const kinds = all(/'(\w+)'/g, screen.match(/\[('postgresql'.*?)\]\.includes/)[1]);
+    assert.ok(kinds.includes('smtp'), 'the needs scanner stopped finding them');
+    for (const kind of [...kinds, 'other']) assertKey(`beatbox.srv.why.maybe.needs.${kind}`, 'ServerWhy.tsx');
+    for (const who of ['beatbox', 'server', 'host', 'network']) assertKey(`beatbox.srv.why.who.${who}`, 'ServerWhy.tsx');
+    for (const tag of ['seen', 'maybe']) assertKey(`beatbox.srv.why.${tag}`, 'ServerWhy.tsx');
   });
 
   test('every word the other server pages compute exists', () => {

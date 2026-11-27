@@ -50,6 +50,7 @@ dependencies = [
  "beatbox-reasons",
  "log",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -91,6 +92,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

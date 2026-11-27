@@ -45,6 +45,13 @@ pub trait Agent: Send {
     fn read_file(&mut self, path: &str) -> Result<String, ControlError>;
     /// Write a file inside.
     fn write_file(&mut self, path: &str, content: &str) -> Result<i64, ControlError>;
+    /// Write `bytes` into a file inside, in pieces, and say how many went in.
+    fn write_bytes(&mut self, path: &str, bytes: &[u8]) -> Result<u64, ControlError> {
+        let _ = (path, bytes);
+        Err(ControlError::new(beatbox_reasons::reason!(
+            "host.copy_stopped"
+        )))
+    }
     /// What the guest says it is (`guest-get-osinfo`): `id` is `mswindows`
     /// on Windows, the distribution on Linux. `Null` from an agent that
     /// cannot say, which is read as Linux.
@@ -82,6 +89,10 @@ impl Agent for GuestAgent {
 
     fn write_file(&mut self, path: &str, content: &str) -> Result<i64, ControlError> {
         GuestAgent::write_file(self, path, content)
+    }
+
+    fn write_bytes(&mut self, path: &str, bytes: &[u8]) -> Result<u64, ControlError> {
+        GuestAgent::write_bytes(self, path, bytes)
     }
 
     fn os(&mut self) -> Result<Value, ControlError> {

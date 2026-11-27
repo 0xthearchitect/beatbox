@@ -81,6 +81,28 @@ cat <&3 >/dev/null
 case "$code" in [23][0-9][0-9]) exit 0 ;; esac
 exit 1"#;
 
+/// What `GET $2` on port `$1` answers: `code=<status>`, then the first
+/// 300 bytes of the body. Exit 1 when nothing accepts the connection.
+pub const HTTP_SAID: &str = r#"exec 2>/dev/null 3<>"/dev/tcp/127.0.0.1/$1" || exit 1
+printf 'GET %s HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n' "$2" >&3
+IFS= read -r status <&3
+status=${status%$'\r'}
+code=${status#* }
+echo "code=${code%% *}"
+while IFS= read -r line <&3; do [ -z "${line%$'\r'}" ] && break; done
+head -c 300 <&3
+cat <&3 >/dev/null"#;
+
+/// Every TCP port something listens on, as `<port> <pid>` lines, then
+/// `--` and every process as `<pid> <ppid>`: enough to tell which ports a
+/// service's own processes hold.
+pub const LISTENING: &str = r#"ss -ltnpH 2>/dev/null | while read -r _ _ _ local _ users; do
+  port=${local##*:}
+  for pid in $(echo "$users" | grep -o 'pid=[0-9]*' | cut -d= -f2); do echo "$port $pid"; done
+done
+echo --
+ps -eo pid=,ppid="#;
+
 /// A self-signed certificate for domain `$2` and every name under it, in
 /// folder `$1`: made once and kept, so a browser told to trust it once is
 /// not asked again. 127 when there is no openssl.
@@ -91,6 +113,225 @@ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 
   -keyout "$1/key.pem" -out "$1/certificate.pem" -subj "/CN=$2" \
   -addext "subjectAltName=DNS:$2,DNS:*.$2" >/dev/null 2>&1 || exit 1
 chmod 600 "$1/key.pem""#;
+
+/// What preparing this guest would take, as `key=value` lines: the
+/// system, whether it has apt, the free space, whether an install is under
+/// way, whether its package sources answer, and for packages `"$@"` those
+/// apt does not have, and the room and download the rest need. Read, never
+/// changed: it never runs `apt-get update`, so a guest that never had one
+/// says `lists=no` and what it has stays unknown.
+pub const PLAN: &str = r#"export LC_ALL=C
+os=/etc/os-release
+printf 'system=%s\n' "$(sed -n 's/^PRETTY_NAME=//p' "$os" 2>/dev/null | tr -d '"')"
+kin=" $(sed -n 's/^ID=//p;s/^ID_LIKE=//p' "$os" 2>/dev/null | tr -d '"' | tr '\n' ' ') "
+case "$kin" in *" debian "*|*" ubuntu "*) ;; *) exit 0 ;; esac
+command -v apt-get >/dev/null 2>&1 || exit 0
+echo apt=yes
+printf 'free_kb=%s\n' "$(df -Pk / | awk 'NR==2 {print $4}')"
+d=/var/log/beatbox
+[ "$(cat "$d/prepare.state" 2>/dev/null)" = running ] \
+  && kill -0 "$(cat "$d/prepare.pid" 2>/dev/null)" 2>/dev/null && echo busy=yes
+source=$(cat /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null \
+  | grep -v '^[[:space:]]*#' | sed -n 's#.*\(https\{0,1\}\)://\([A-Za-z0-9.-]*\).*#\1 \2#p' | head -n 1)
+if [ -z "$source" ]; then
+  echo reach=no
+else
+  port=80
+  case "$source" in https*) port=443 ;; esac
+  if timeout 4 bash -c 'exec 3<>"/dev/tcp/$1/$2"' bash "${source#* }" "$port" 2>/dev/null; then
+    echo reach=yes
+  else
+    echo reach=no
+  fi
+fi
+ls /var/lib/apt/lists 2>/dev/null | grep -q '_Packages' || { echo lists=no; exit 0; }
+echo lists=yes
+absent=
+for package; do
+  candidate=$(apt-cache policy "$package" 2>/dev/null | sed -n 's/^ *Candidate: //p')
+  if [ -z "$candidate" ] || [ "$candidate" = "(none)" ]; then
+    echo "absent=$package"
+    absent=yes
+  fi
+done
+[ -n "$absent" ] && exit 0
+new=$(apt-get install -s --no-install-recommends "$@" 2>/dev/null | sed -n 's/^Inst \([^ ]*\).*/\1/p')
+[ -z "$new" ] && exit 0
+printf 'room_kb=%s\n' "$(apt-cache show --no-all-versions $new 2>/dev/null | awk '/^Installed-Size:/ {s+=$2} END {print s+0}')"
+printf 'get_kb=%s\n' "$(apt-get install --print-uris -qq --no-install-recommends "$@" 2>/dev/null | awk '{s+=$3} END {print int(s/1024)}')""#;
+
+/// Install packages `"$@"` after `$1` (the script that does it, [`INSTALL`])
+/// and `$2` (units to keep off, spaces between), detached from the agent: an
+/// install takes minutes, and the Host answers one thing at a time. 3 when
+/// one is already under way. [`PREPARING`] follows it.
+pub const APPLY: &str = r#"d=/var/log/beatbox
+mkdir -p "$d" || exit 1
+if [ "$(cat "$d/prepare.state" 2>/dev/null)" = running ] \
+  && kill -0 "$(cat "$d/prepare.pid" 2>/dev/null)" 2>/dev/null; then exit 3; fi
+work=$1
+units=$2
+shift 2
+printf '%s\n' "$@" >"$d/prepare.packages"
+echo running >"$d/prepare.state"
+setsid /bin/sh -c "$work" sh "$units" "$@" >"$d/prepare.log" 2>&1 </dev/null &
+echo $! >"$d/prepare.pid""#;
+
+/// The install itself: packages `"$@"` after `$1`, the units to keep off.
+/// No service of theirs starts while it runs (policy-rc.d, unless the guest
+/// already has one of its own), and theirs stay off after: the Server runs
+/// its own, on the same port.
+pub const INSTALL: &str = r#"export DEBIAN_FRONTEND=noninteractive LC_ALL=C
+set -f
+d=/var/log/beatbox
+units=$1
+shift
+mine=
+if [ ! -e /usr/sbin/policy-rc.d ]; then
+  printf '#!/bin/sh\nexit 101\n' >/usr/sbin/policy-rc.d && chmod 755 /usr/sbin/policy-rc.d && mine=yes
+fi
+wait=DPkg::Lock::Timeout=120
+apt-get -o "$wait" update && apt-get -o "$wait" install -y --no-install-recommends -o Dpkg::Options::=--force-confold "$@"
+code=$?
+[ -n "$mine" ] && rm -f /usr/sbin/policy-rc.d
+if [ "$code" -ne 0 ]; then
+  echo failed >"$d/prepare.state"
+  exit "$code"
+fi
+for unit in $units; do
+  systemctl disable --now "$unit" >/dev/null 2>&1
+done
+echo done >"$d/prepare.state""#;
+
+/// How the last install went, as `key=value` lines: `state` (none, running,
+/// done or failed: running with its process gone is failed), each package
+/// installed with its version once done, and the end of its log.
+pub const PREPARING: &str = r#"d=/var/log/beatbox
+state=$(cat "$d/prepare.state" 2>/dev/null) || { echo state=none; exit 0; }
+if [ "$state" = running ] && ! kill -0 "$(cat "$d/prepare.pid" 2>/dev/null)" 2>/dev/null; then
+  state=failed
+fi
+echo "state=$state"
+if [ "$state" = done ]; then
+  while IFS= read -r package; do
+    dpkg-query -W -f='installed=${Package} ${Version}\n' "$package" 2>/dev/null
+  done <"$d/prepare.packages"
+fi
+tail -n 60 "$d/prepare.log" 2>/dev/null | sed 's/^/line=/'
+exit 0"#;
+
+/// Where copies wait inside the guest on their way in or out, one folder
+/// each. Root's alone, but crossable, so PostgreSQL can write its dump.
+pub const COPY_STAGE: &str = "/var/lib/beatbox/copies";
+
+/// Make `$1`, a fresh folder under [`COPY_STAGE`].
+pub const STAGE: &str = r#"set -eu
+case "$1" in /var/lib/beatbox/copies/?*) ;; *) exit 2;; esac
+umask 077
+mkdir -p /var/lib/beatbox/copies
+chmod 711 /var/lib/beatbox/copies
+rm -rf "$1"
+mkdir "$1""#;
+
+/// Pack the paths after `$1` into `$1/copy`. The service is stopped: these
+/// are files a running program may be halfway through writing. A path not
+/// there yet is left out.
+pub const PACK: &str = r#"set -eu
+stage=$1
+shift
+tar -czf "$stage/copy" --ignore-failed-read "$@" 2>"$stage/said" || { cat "$stage/said" >&2; exit 1; }"#;
+
+/// Size and sha256 of `$1`, as `bytes=` and `sha=` lines.
+pub const SUM: &str = r#"set -eu
+printf 'bytes=%s\nsha=%s\n' "$(wc -c <"$1")" "$(sha256sum "$1" | cut -d' ' -f1)""#;
+
+/// Piece `$2` (from 0) of `$1`, [`PIECE_BYTES`] long, in base64.
+pub const PIECE: &str = r#"dd if="$1" bs=4194304 skip="$2" count=1 status=none | base64 -w0"#;
+
+/// The bytes of a piece read from the guest at a time: in base64 well under
+/// the 16 MB of output the agent keeps from one run. Matches `bs=` in
+/// [`PIECE`].
+pub const PIECE_BYTES: u64 = 4 * 1024 * 1024;
+
+/// Add the base64 in `$1/piece` to `$1/copy`.
+pub const APPEND: &str = r#"set -eu
+base64 -d "$1/piece" >>"$1/copy"
+rm -f "$1/piece""#;
+
+/// Put `$1/copy` back over the paths after `$1`, with the service stopped.
+/// All of it is unpacked first, so a damaged copy changes nothing; what was
+/// there waits in `$1/old` until the Server deletes the stage.
+pub const UNPACK: &str = r#"set -eu
+stage=$1
+shift
+mkdir "$stage/new" "$stage/old"
+tar -xzf "$stage/copy" -C "$stage/new"
+for path; do
+  if [ -e "$path" ] || [ -L "$path" ]; then
+    mkdir -p "$stage/old${path%/*}"
+    mv "$path" "$stage/old$path"
+  fi
+  if [ -e "$stage/new$path" ] || [ -L "$stage/new$path" ]; then
+    mkdir -p "${path%/*}"
+    mv "$stage/new$path" "$path"
+  fi
+done"#;
+
+/// Delete the stage `$1`, and nothing that is not one.
+pub const UNSTAGE: &str = r#"case "$1" in /var/lib/beatbox/copies/?*) rm -rf "$1";; esac"#;
+
+/// Kilobytes the paths given take, those that are there.
+pub const SIZE: &str = r#"total=0
+for path; do
+  [ -e "$path" ] || continue
+  kb=$(du -sk -- "$path" | cut -f1)
+  total=$((total + kb))
+done
+echo "$total""#;
+
+/// `argv`, given up to `seconds` instead of the Host's usual wait: a dump
+/// or a large copy takes longer than a check.
+pub fn execute_for(
+    peers: &Peers,
+    argv: &[String],
+    secrets: &[String],
+    seconds: u32,
+) -> Result<Data, Reason> {
+    let (program, arguments) = argv
+        .split_first()
+        .expect("a definition's argv is never empty");
+    let mut asked = data!({"command": program, "arguments": arguments, "timeout": seconds});
+    if !secrets.is_empty() {
+        asked.insert("conceal".into(), secrets.into());
+    }
+    host(peers, "process.execute", asked)
+}
+
+/// `script` like [`sh`], given up to `seconds`.
+pub fn sh_for(
+    peers: &Peers,
+    script: &str,
+    parameters: &[&str],
+    seconds: u32,
+) -> Result<Data, Reason> {
+    let mut argv = vec![
+        "/bin/sh".to_owned(),
+        "-c".to_owned(),
+        script.to_owned(),
+        "sh".to_owned(),
+    ];
+    argv.extend(parameters.iter().map(|p| (*p).to_owned()));
+    execute_for(peers, &argv, &[], seconds)
+}
+
+/// Write `content` to `path` in the guest.
+pub fn write(peers: &Peers, path: &str, content: &str) -> Result<(), Reason> {
+    host(
+        peers,
+        "filesystem.write",
+        data!({"path": path, "content": content}),
+    )
+    .map(|_| ())
+}
 
 /// How long one check may take, inside the guest.
 pub const CHECK_SECONDS: &str = "3";
@@ -133,7 +374,8 @@ pub fn execute(peers: &Peers, argv: &[String], secrets: &[String]) -> Result<Dat
     host(peers, "process.execute", asked)
 }
 
-fn sh(peers: &Peers, script: &str, parameters: &[&str]) -> Result<Data, Reason> {
+/// `script` run by `/bin/sh` with `parameters` as `"$@"`.
+pub fn sh(peers: &Peers, script: &str, parameters: &[&str]) -> Result<Data, Reason> {
     sh_concealing(peers, script, parameters, &[])
 }
 
@@ -153,7 +395,8 @@ fn sh_concealing(
     execute(peers, &argv, secrets)
 }
 
-fn exit_code(data: &Data) -> i64 {
+/// What a run exited with; -1 when it did not say.
+pub fn exit_code(data: &Data) -> i64 {
     data.get("exit_code").and_then(Value::as_i64).unwrap_or(-1)
 }
 
@@ -193,6 +436,63 @@ pub fn tcp_check(peers: &Peers, port: u16) -> Result<bool, Reason> {
 /// `GET path` on `port` answers 2xx or 3xx.
 pub fn http_check(peers: &Peers, port: u16, path: &str) -> Result<bool, Reason> {
     check(peers, HTTP_CHECK, &[&port.to_string(), path])
+}
+
+/// What `GET path` on `port` answers: its status code and the start of its
+/// body, or `None` when nothing accepts the connection.
+pub fn http_said(peers: &Peers, port: u16, path: &str) -> Result<Option<(u16, String)>, Reason> {
+    let argv: Vec<String> = ["timeout", CHECK_SECONDS, "bash", "-c", HTTP_SAID, "bash"]
+        .map(str::to_owned)
+        .into_iter()
+        .chain([port.to_string(), path.to_owned()])
+        .collect();
+    let said = execute(peers, &argv, &[])?;
+    let out = said
+        .get("stdout")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let (first, body) = out.split_once('\n').unwrap_or((out, ""));
+    Ok(first
+        .strip_prefix("code=")
+        .and_then(|code| code.trim().parse().ok())
+        .map(|code| (code, body.to_owned())))
+}
+
+/// The TCP ports held by process `pid` or any process under it.
+pub fn ports_of(peers: &Peers, pid: i64) -> Result<Vec<u16>, Reason> {
+    let said = sh(peers, LISTENING, &[])?;
+    let out = said
+        .get("stdout")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let (listening, table) = out.split_once("--").unwrap_or((out, ""));
+    let pair = |line: &str| {
+        let mut words = line.split_whitespace().map(str::parse::<i64>);
+        Some((words.next()?.ok()?, words.next()?.ok()?))
+    };
+    let parents: Vec<(i64, i64)> = table.lines().filter_map(pair).collect();
+    let mine = |mut each: i64| {
+        // A parent chain is short; the bound only stops a table that loops.
+        for _ in 0..64 {
+            if each == pid {
+                return true;
+            }
+            match parents.iter().find(|(child, _)| *child == each) {
+                Some((_, parent)) if *parent > 1 => each = *parent,
+                _ => return false,
+            }
+        }
+        false
+    };
+    let mut ports: Vec<u16> = listening
+        .lines()
+        .filter_map(pair)
+        .filter(|(_, owner)| mine(*owner))
+        .filter_map(|(port, _)| u16::try_from(port).ok())
+        .collect();
+    ports.sort_unstable();
+    ports.dedup();
+    Ok(ports)
 }
 
 /// `argv` exits 0.

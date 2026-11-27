@@ -9,7 +9,7 @@ use beatbox_contract::{
     ActionFieldView, ActionOutcomeView, ActionSpecView, ReasonView, SandboxConfigView,
     SandboxEventView, SandboxStateView, SandboxSummary, SandboxTypeView, SandboxView,
 };
-use beatbox_engine::runtime::lifecycle::{CALLABLE, transitions_from};
+use beatbox_engine::runtime::lifecycle::{CALLABLE, Lifecycle, transitions_from};
 use beatbox_engine::runtime::resources::{CPU, MEMORY};
 use beatbox_engine::{
     ActionOutcome, ActionSpec, ContractError, EngineError, Event, Field, Reason, Resources,
@@ -187,6 +187,9 @@ impl Api {
                 format!("A transition is one of: {}.", names.join(", ")),
             ));
         };
+        if transition == Transition::Start {
+            recable(&self.runtime, &sandbox);
+        }
         match sandbox.apply(transition) {
             Ok(_) => {}
             Err(EngineError::Refused(why)) => {
@@ -382,5 +385,49 @@ fn action_view(spec: &ActionSpec) -> ActionSpecView {
         capability: spec.capability.clone(),
         inputs: fields(&spec.inputs),
         outputs: fields(&spec.outputs),
+    }
+}
+
+/// A machine off whose kept UDP port another program took meanwhile gets
+/// another one from its network, or QEMU could not bind it and would not
+/// start. Anything amiss here is left for the start to say.
+fn recable(runtime: &beatbox_engine::SandboxRuntime, machine: &Sandbox) {
+    let config = machine.config();
+    let Some(cable) = config.settings.get("network").and_then(Value::as_object) else {
+        return;
+    };
+    let text = |key: &str| cable.get(key).and_then(Value::as_str).unwrap_or_default();
+    let Some(local) = text("port").strip_prefix("udp:") else {
+        return;
+    };
+    // Its own QEMU holds the port while it runs.
+    let off = !matches!(
+        machine.state().lifecycle,
+        Lifecycle::Running | Lifecycle::Paused
+    );
+    if !off || std::net::UdpSocket::bind(local).is_ok() {
+        return;
+    }
+    let Ok(network) = runtime.get(text("sandbox")) else {
+        return;
+    };
+    let mut ask = Map::new();
+    ask.insert("node".into(), Value::String(text("node").to_owned()));
+    ask.insert("renew".into(), Value::Bool(true));
+    let Ok(answer) = network.act("network.attach", ask) else {
+        return;
+    };
+    if !answer.ok {
+        return;
+    }
+    let mut fresh = answer.data;
+    fresh.insert("sandbox".into(), Value::String(network.id().to_owned()));
+    let mut renewed = config.clone();
+    renewed
+        .settings
+        .insert("network".into(), Value::Object(fresh));
+    match machine.reconfigure(renewed) {
+        Ok(_) => log::info!("{} is on another port: its own was taken", machine.name()),
+        Err(error) => log::warn!("{} kept a port that is taken: {error}", machine.name()),
     }
 }

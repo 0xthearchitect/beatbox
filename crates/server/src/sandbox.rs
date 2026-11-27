@@ -24,6 +24,15 @@ use crate::node::{Node, Running, Shared};
 use crate::placeholders::fill;
 use crate::{builtins, internal, process};
 
+#[path = "copies.rs"]
+mod copies;
+#[path = "why.rs"]
+mod why;
+// The same twenty lines the guest agent uses; deny.toml keeps the server from
+// depending on beatbox-isolation for them.
+#[path = "../../isolation/src/base64.rs"]
+mod base64;
+
 /// Everything this type can ever do. Each past the lifecycle has an
 /// [`ActionSpec`] in [`actions`].
 pub const CAPABILITIES: &[&str] = &[
@@ -45,6 +54,14 @@ pub const CAPABILITIES: &[&str] = &[
     "service.supervise",
     "server.settings",
     "server.check",
+    "server.prepare",
+    "server.preparing",
+    "server.copies",
+    "server.copy",
+    "server.copy_back",
+    "server.copy_delete",
+    "server.why",
+    "server.diary",
     "server.secret.set",
     "server.secret.remove",
 ];
@@ -184,6 +201,46 @@ pub fn actions() -> Vec<ActionSpec> {
             "server.check",
             vec![may("programs", List)],
             vec![may("host", Any), may("network", Any)],
+        ),
+        ActionSpec::new(
+            "server.prepare",
+            vec![need("service", Text), may("install", Bool)],
+            vec![],
+        ),
+        ActionSpec::new("server.preparing", vec![], vec![need("state", Text)]),
+        ActionSpec::new(
+            "server.why",
+            vec![need("service", Text)],
+            vec![
+                need("facts", List),
+                may("maybe", Any),
+                need("checked_at", Number),
+            ],
+        ),
+        ActionSpec::new("server.diary", vec![], vec![need("entries", List)]),
+        ActionSpec::new(
+            "server.copies",
+            vec![need("service", Text)],
+            vec![need("copies", List), need("unfinished", List)],
+        ),
+        ActionSpec::new(
+            "server.copy",
+            vec![need("service", Text), may("note", Text)],
+            vec![need("copy", Any)],
+        ),
+        ActionSpec::new(
+            "server.copy_back",
+            vec![
+                need("service", Text),
+                need("copy", Text),
+                may("first", Bool),
+            ],
+            vec![need("copy", Text)],
+        ),
+        ActionSpec::new(
+            "server.copy_delete",
+            vec![need("service", Text), need("copy", Text)],
+            vec![need("copy", Text)],
         ),
         ActionSpec::new(
             "service.list",
@@ -394,6 +451,10 @@ struct Instance {
     /// ([`ServerSandbox::machine_run`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     seen_in: Option<String>,
+    /// Its health when its machine froze while it ran. A frozen guest keeps
+    /// its processes, so Carry on gives it back without asking anybody.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    frozen_with: Option<Wellness>,
 }
 
 impl Instance {
@@ -517,6 +578,8 @@ pub struct ServerSandbox {
     published: BTreeMap<String, BTreeMap<String, Ipv4Addr>>,
     /// Its own settings (`own.json`).
     own: Own,
+    /// What its machine and network were last written down in the diary as.
+    seen: BTreeMap<String, String>,
 }
 
 impl ServerSandbox {
@@ -556,6 +619,12 @@ impl ServerSandbox {
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
+        // A Server made again with a diary already there is BeatBox starting
+        // again: the line keeps what came before from reading as now.
+        if room.join(SERVICES).exists() {
+            why::write_line(&room, data!({"name": "beatbox.started"}));
+        }
+        let seen = why::peers_seen(&room);
         Self {
             identity,
             config,
@@ -568,6 +637,7 @@ impl ServerSandbox {
             node: None,
             published: BTreeMap::new(),
             own,
+            seen,
         }
     }
 
@@ -807,6 +877,137 @@ impl ServerSandbox {
         }))
     }
 
+    /// What getting `service`'s programs onto its machine takes, looked at
+    /// and never changed; with `install`, starting it after a person said
+    /// so. Only the programs it lacks that its definition names a Debian
+    /// package for: the rest are for a person to install.
+    fn prepare(&mut self, action: &Action) -> Result<Data, Reason> {
+        let at = self.find(&text(action, "service"))?;
+        let id = self.services[at].definition.id.clone();
+        // A service keeps the definition it was made with; the catalog's is
+        // the one that knows its packages.
+        let definition = self
+            .catalog()
+            .0
+            .into_iter()
+            .map(|(definition, _)| definition)
+            .find(|definition| definition.id == id)
+            .unwrap_or_else(|| self.services[at].definition.clone());
+        if !self.host_up() {
+            return Ok(data!({"off": true}));
+        }
+        if let Some(state) = self.peers.state("host")
+            && state.fact("family").and_then(Value::as_str) == Some("windows")
+        {
+            return Ok(data!({"system": "Windows", "apt": false}));
+        }
+        let asked: Vec<&str> = definition.requires.iter().map(String::as_str).collect();
+        let said = process::sh(&self.peers, process::HAS, &asked)?;
+        let found: Vec<&str> = said
+            .get("stdout")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .lines()
+            .collect();
+        let (have, missing): (Vec<&str>, Vec<&str>) =
+            asked.iter().partition(|program| found.contains(program));
+        let apt = definition.apt.clone().unwrap_or_default();
+        let mut install = Vec::new();
+        let mut yourself = Vec::new();
+        for program in &missing {
+            match apt.packages.get(*program) {
+                Some(package) => install.push(json!({"program": program, "package": package})),
+                None => yourself.push(*program),
+            }
+        }
+        let mut packages: Vec<&str> = missing
+            .iter()
+            .filter_map(|program| apt.packages.get(*program).map(String::as_str))
+            .collect();
+        packages.sort_unstable();
+        packages.dedup();
+
+        if action.argument("install").and_then(Value::as_bool) == Some(true) {
+            if packages.is_empty() {
+                return Err(reason!(
+                    "server.nothing_to_install",
+                    service = self.services[at].name
+                ));
+            }
+            let units = apt.keep_off.join(" ");
+            let mut parameters = vec![process::INSTALL, units.as_str()];
+            parameters.extend(&packages);
+            return match process::exit_code(&process::sh(&self.peers, process::APPLY, &parameters)?)
+            {
+                0 => Ok(data!({"started": true, "packages": packages})),
+                3 => Err(reason!("server.prepare_busy")),
+                _ => Err(reason!("server.prepare_not_started")),
+            };
+        }
+
+        let said = process::sh(&self.peers, process::PLAN, &packages)?;
+        let mut plan = data!({
+            "system": "", "apt": false, "busy": false, "reach": false, "lists": false,
+            "absent": [], "have": have, "install": install, "yourself": yourself,
+        });
+        let mut absent = Vec::new();
+        for line in said
+            .get("stdout")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .lines()
+        {
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
+            match key {
+                "system" => {
+                    plan.insert(key.into(), json!(value));
+                }
+                "apt" | "busy" | "reach" | "lists" => {
+                    plan.insert(key.into(), json!(value == "yes"));
+                }
+                "free_kb" | "room_kb" | "get_kb" => {
+                    if let Ok(number) = value.trim().parse::<u64>() {
+                        plan.insert(key.into(), json!(number));
+                    }
+                }
+                "absent" => absent.push(value.to_owned()),
+                _ => {}
+            }
+        }
+        plan.insert("absent".into(), json!(absent));
+        Ok(plan)
+    }
+
+    /// How the last install on its machine went, and the end of its log.
+    fn preparing(&mut self) -> Result<Data, Reason> {
+        if !self.host_up() {
+            return Ok(data!({"state": "none"}));
+        }
+        let said = process::sh(&self.peers, process::PREPARING, &[])?;
+        let mut state = "none".to_owned();
+        let mut installed = serde_json::Map::new();
+        let mut lines = Vec::new();
+        for line in said
+            .get("stdout")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .lines()
+        {
+            match line.split_once('=') {
+                Some(("state", value)) => value.clone_into(&mut state),
+                Some(("installed", value)) => {
+                    let (package, version) = value.split_once(' ').unwrap_or((value, ""));
+                    installed.insert(package.to_owned(), json!(version));
+                }
+                Some(("line", value)) => lines.push(value.to_owned()),
+                _ => {}
+            }
+        }
+        Ok(data!({"state": state, "installed": installed, "lines": lines}))
+    }
+
     /// Write a definition into the library, checked first:
     /// what a person made in a form becomes a file like any plugin's.
     fn define(&mut self, action: &Action) -> Result<Data, Reason> {
@@ -835,6 +1036,7 @@ impl ServerSandbox {
     }
 
     fn emit(&self, name: &str, data: Data) {
+        self.note(name, &data);
         if let Err(error) = self.emitter.emit(name, data) {
             log::warn!("{} could not say {name}: {error}", self.identity.id);
         }
@@ -962,6 +1164,7 @@ impl ServerSandbox {
             restarts: 0,
             restarted_at: None,
             seen_in: None,
+            frozen_with: None,
         };
         let said =
             data!({"service": name, "definition": instance.definition.id, "state": "created"});
@@ -1396,17 +1599,34 @@ impl ServerSandbox {
     /// A machine that is not running took its services with it. Said here
     /// too, not only when the page lists them: until then the Server kept
     /// calling them running and healthy. The pid stays, as in `running`: a
-    /// machine back from its saved state still has the process.
+    /// machine back from its saved state still has the process. Back from a
+    /// freeze, what it froze runs again.
     fn gone_with_machine(&mut self) {
-        if self.host_up() {
-            return;
-        }
+        let host = self.peers.state("host").map(|state| state.lifecycle);
+        let frozen = host == Some(Lifecycle::Paused);
+        let up = host == Some(Lifecycle::Running);
         let mut changed = false;
         for at in 0..self.services.len() {
             let each = &self.services[at];
-            if each.state == State::Running && !each.definition.is_internal() {
+            let (ran, was) = (
+                each.state == State::Running && !each.definition.is_internal(),
+                each.health,
+            );
+            if up {
+                if let Some(health) = each.frozen_with {
+                    self.services[at].state = State::Running;
+                    self.services[at].frozen_with = None;
+                    self.set_health(at, health);
+                    changed = true;
+                }
+            } else if ran {
                 self.services[at].state = State::Stopped;
+                self.services[at].frozen_with = frozen.then_some(was);
                 self.set_health(at, Wellness::Unknown);
+                changed = true;
+            } else if !frozen && each.frozen_with.is_some() {
+                // Stopped while frozen: the processes went with it.
+                self.services[at].frozen_with = None;
                 changed = true;
             }
         }
@@ -1931,10 +2151,11 @@ impl ServerSandbox {
         }
         // Not asked while its machine is not running: a frozen one does not
         // answer, and the page would lose every service to "no agent".
+        self.gone_with_machine();
         if !self.host_up() {
-            self.gone_with_machine();
             return Ok(false);
         }
+        let instance = &self.services[at];
         // A pid on a stopped one is kept from a machine that went off: one
         // whose state was saved comes back with that process still in it.
         let (State::Running | State::Stopped, Some(pid)) = (instance.state, instance.pid) else {
@@ -2158,6 +2379,7 @@ impl ServerSandbox {
 
     /// One action, and the domain's names brought in line with what it did.
     fn act(&mut self, action: &Action) -> Result<Data, Reason> {
+        self.note_peers();
         let done = self.act_on(action);
         self.publish_domain();
         done
@@ -2177,6 +2399,7 @@ impl ServerSandbox {
                             "configuration": d.configuration, "interfaces": d.interfaces,
                             "runs": d.runs(),
                             "requires": d.requires,
+                            "apt": d.apt,
                         })
                     })
                     .collect();
@@ -2248,6 +2471,14 @@ impl ServerSandbox {
             "service.depend" => self.depend(action),
             "service.supervise" => self.supervise(),
             "server.check" => self.check(action),
+            "server.prepare" => self.prepare(action),
+            "server.preparing" => self.preparing(),
+            "server.why" => self.why(action),
+            "server.diary" => Ok(self.diary()),
+            "server.copies" => self.copies(action),
+            "server.copy" => self.copy(action),
+            "server.copy_back" => self.copy_back(action),
+            "server.copy_delete" => self.copy_delete(action),
             "server.secret.set" => self.set_secret(action),
             "server.secret.remove" => self.remove_secret(action),
             other => Err(reason!("engine.unsupported", capability = other)),

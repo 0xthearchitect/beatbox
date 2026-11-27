@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Icon } from './Icon';
-import { CloseButton } from './primitives';
+import { CloseButton, Info } from './primitives';
 import { t } from '../i18n';
 
 /**
@@ -10,8 +10,10 @@ import { t } from '../i18n';
  * `dismissable={false}` for questions that block something (like closing the
  * window): Escape or a click outside must not count as an answer.
  */
-export function Modal({ title, icon, children, footer, width, onClose, dismissable = true }: {
+export function Modal({ title, icon, info, children, footer, width, onClose, dismissable = true }: {
   title: string;
+  /** Explanation behind an ⓘ beside the title. */
+  info?: string;
   icon?: Parameters<typeof Icon>[0]['name'];
   children: ReactNode;
   footer?: ReactNode;
@@ -73,7 +75,7 @@ export function Modal({ title, icon, children, footer, width, onClose, dismissab
       >
         <header className="bb-modal-head">
           {icon ? <Icon name={icon} size="sm" /> : null}
-          <b>{title}</b>
+          <b>{title}{info ? <span className="bb-modal-info"><Info text={info} /></span> : null}</b>
           {dismissable ? <CloseButton title={t('beatbox.modal.close')} onClick={onClose} /> : null}
         </header>
         <div className="bb-modal-body">{children}</div>

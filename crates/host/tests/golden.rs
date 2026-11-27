@@ -107,7 +107,7 @@ fn every_configuration_becomes_the_machine_the_python_made_of_it() {
                 !matches!(
                     name.as_str(),
                     "process.shell" | "network.probe" | "snapshot.save_state" | "display.picture"
-                )
+                ) && !name.starts_with("programs.")
             })
             .collect();
         assert_eq!(json!(kept), entry["capabilities"], "{case}: capabilities");

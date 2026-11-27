@@ -11,6 +11,7 @@ beatbox-engine.workspace = true
 beatbox-isolation.workspace = true
 beatbox-reasons.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 log.workspace = true
 
 [lints]

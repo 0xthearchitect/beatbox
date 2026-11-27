@@ -42,6 +42,9 @@ use serde_json::{Map, Value, json};
 use crate::environment::{Agent, Environment};
 use crate::settings::{flag, py_int, py_str, text, truthy};
 
+#[path = "programs.rs"]
+mod programs;
+
 /// How long to wait for QEMU's own control channel after starting it. The
 /// socket appears as QEMU initialises, long before anything boots.
 pub const MONITOR_TIMEOUT: Duration = Duration::from_secs(15);
@@ -168,12 +171,19 @@ pub const CAPABILITIES: &[&str] = &[
     "media.pen",
     "media.eject",
     "display.picture",
+    "programs.list",
+    "programs.add",
+    "programs.adding",
+    "programs.stop",
+    "programs.remove",
+    "programs.save",
+    "programs.forget",
 ];
 
 /// What each capability past the lifecycle takes and gives back. The
 /// runtime checks the inputs; the tests check the outputs.
 pub fn actions() -> Vec<ActionSpec> {
-    use Kind::{Bool, List, Number, Text};
+    use Kind::{Bool, List, Number, Object, Text};
     let need = Field::required;
     let may = Field::optional;
     let ran = || {
@@ -291,11 +301,45 @@ pub fn actions() -> Vec<ActionSpec> {
             vec![],
             vec![need("picture", Text), need("taken", Number)],
         ),
+        ActionSpec::new(
+            "programs.list",
+            vec![may("quick", Bool)],
+            vec![need("windows", Bool), need("programs", List)],
+        ),
+        ActionSpec::new(
+            "programs.add",
+            vec![need("program", Text), may("refresh", Bool)],
+            vec![need("phase", Text)],
+        ),
+        ActionSpec::new("programs.adding", vec![], vec![need("phase", Text)]),
+        ActionSpec::new("programs.stop", vec![], vec![]),
+        ActionSpec::new(
+            "programs.remove",
+            vec![need("program", Text)],
+            vec![need("program", Text)],
+        ),
+        ActionSpec::new(
+            "programs.save",
+            vec![need("recipe", Object)],
+            vec![need("program", Text)],
+        ),
+        ActionSpec::new(
+            "programs.forget",
+            vec![need("program", Text)],
+            vec![need("program", Text)],
+        ),
     ]
 }
 
 /// Everything that needs something running inside the guest to answer.
-const NEEDS_AGENT: [&str; 8] = [
+const NEEDS_AGENT: [&str; 15] = [
+    "programs.list",
+    "programs.add",
+    "programs.adding",
+    "programs.stop",
+    "programs.remove",
+    "programs.save",
+    "programs.forget",
     "process.execute",
     "process.shell",
     "process.list",
@@ -387,6 +431,8 @@ pub struct HostSandbox {
     /// How the disk starts -- its firmware, and whether anything on it can
     /// start at all -- read off it once.
     detected_start: std::sync::OnceLock<(&'static str, bool)>,
+    /// The program being added, until another one is.
+    programs_job: Option<programs::Job>,
 }
 
 impl HostSandbox {
@@ -479,6 +525,7 @@ impl HostSandbox {
             media: None,
             guest_family: None,
             detected_start: std::sync::OnceLock::new(),
+            programs_job: None,
         }
     }
 
@@ -2104,6 +2151,15 @@ impl SandboxProvider for HostSandbox {
             "media.pen" => self.plug_pen(action),
             "media.eject" => self.eject_pen(),
             "display.picture" => Ok(self.picture()),
+            "programs.list" => {
+                self.programs_list(action.argument("quick").and_then(Value::as_bool) == Some(true))
+            }
+            "programs.add" => self.programs_add(action),
+            "programs.adding" => self.programs_adding(),
+            "programs.stop" => self.programs_stop(),
+            "programs.remove" => self.programs_remove(action),
+            "programs.save" => self.programs_save(action),
+            "programs.forget" => self.programs_forget(action),
             other => Err(unsupported(other)),
         }
     }

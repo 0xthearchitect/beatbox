@@ -23,6 +23,47 @@
     "pg_isready",
     "bash"
   ],
+  "apt": {
+    "packages": {
+      "psql": "postgresql",
+      "pg_isready": "postgresql"
+    },
+    "keep_off": [
+      "postgresql.service"
+    ]
+  },
+  "data": {
+    "paths": [
+      "/var/lib/postgresql/beatbox/{_id}"
+    ],
+    "dump": [
+      "bash",
+      "-c",
+      "set -eu\n# A copy of one database, made and put back by PostgreSQL itself while it\n# runs: copying its files under a running server would not be a copy.\nmode=$1\nbin=$2\ndata=$3\nport=$4\ndatabase=${5:-postgres}\nowner=${6:-postgres}\nfile=$7\nmade=${8-}\nversion=$(cat \"$data/PG_VERSION\")\ncase \"$version\" in *[!0-9.]*|'') exit 2;; esac\nif [ -z \"$bin\" ]; then\n  bin=/usr/lib/postgresql/$version/bin\n  [ -x \"$bin/pg_dump\" ] || bin=$(dirname \"$(command -v pg_dump)\")\nfi\nas_postgres() { runuser -u postgres -- \"$@\"; }\n# template1, not postgres: the database put back may be postgres itself.\nsql() {\n  as_postgres \"$bin/psql\" --no-psqlrc --quiet --host \"$data\" --port \"$port\" \\\n    --dbname template1 --set ON_ERROR_STOP=1 \"$@\"\n}\ncase \"$mode\" in\n  dump)\n    chown postgres \"${file%/*}\"\n    as_postgres \"$bin/pg_dump\" --host \"$data\" --port \"$port\" --format custom \\\n      --file \"$file\" \"$database\"\n    echo \"made_with=$version\"\n    ;;\n  load)\n    if [ \"${made%%.*}\" -gt \"${version%%.*}\" ] 2>/dev/null; then\n      printf '{\"code\":\"server.copy_newer\",\"values\":{\"made\":\"%s\",\"has\":\"%s\"}}\\n' \"$made\" \"$version\"\n      exit 3\n    fi\n    chown postgres \"${file%/*}\" \"$file\"\n    # Into a new database first, swapped in only once it is whole: a copy\n    # that fails halfway leaves the one there now as it was.\n    new=\"$database\"__beatbox_back\n    sql --set new=\"$new\" --set owner=\"$owner\" <<'SQL'\nSELECT format('DROP DATABASE IF EXISTS %I', :'new') \\gexec\nSELECT format('CREATE DATABASE %I OWNER %I', :'new', :'owner') \\gexec\nSQL\n    if ! as_postgres \"$bin/pg_restore\" --host \"$data\" --port \"$port\" --dbname \"$new\" \\\n        --exit-on-error --no-owner --role \"$owner\" \"$file\"; then\n      sql --set new=\"$new\" <<'SQL' || true\nSELECT format('DROP DATABASE IF EXISTS %I', :'new') \\gexec\nSQL\n      exit 1\n    fi\n    sql --set old=\"$database\" --set new=\"$new\" <<'SQL'\nSELECT format('DROP DATABASE IF EXISTS %I WITH (FORCE)', :'old') \\gexec\nSELECT format('ALTER DATABASE %I RENAME TO %I', :'new', :'old') \\gexec\nSQL\n    ;;\n  *) exit 2;;\nesac\n",
+      "postgresql-copy",
+      "dump",
+      "{bin_directory}",
+      "/var/lib/postgresql/beatbox/{_id}",
+      "{port}",
+      "{database}",
+      "{user}",
+      "{_copy}"
+    ],
+    "load": [
+      "bash",
+      "-c",
+      "set -eu\n# A copy of one database, made and put back by PostgreSQL itself while it\n# runs: copying its files under a running server would not be a copy.\nmode=$1\nbin=$2\ndata=$3\nport=$4\ndatabase=${5:-postgres}\nowner=${6:-postgres}\nfile=$7\nmade=${8-}\nversion=$(cat \"$data/PG_VERSION\")\ncase \"$version\" in *[!0-9.]*|'') exit 2;; esac\nif [ -z \"$bin\" ]; then\n  bin=/usr/lib/postgresql/$version/bin\n  [ -x \"$bin/pg_dump\" ] || bin=$(dirname \"$(command -v pg_dump)\")\nfi\nas_postgres() { runuser -u postgres -- \"$@\"; }\n# template1, not postgres: the database put back may be postgres itself.\nsql() {\n  as_postgres \"$bin/psql\" --no-psqlrc --quiet --host \"$data\" --port \"$port\" \\\n    --dbname template1 --set ON_ERROR_STOP=1 \"$@\"\n}\ncase \"$mode\" in\n  dump)\n    chown postgres \"${file%/*}\"\n    as_postgres \"$bin/pg_dump\" --host \"$data\" --port \"$port\" --format custom \\\n      --file \"$file\" \"$database\"\n    echo \"made_with=$version\"\n    ;;\n  load)\n    if [ \"${made%%.*}\" -gt \"${version%%.*}\" ] 2>/dev/null; then\n      printf '{\"code\":\"server.copy_newer\",\"values\":{\"made\":\"%s\",\"has\":\"%s\"}}\\n' \"$made\" \"$version\"\n      exit 3\n    fi\n    chown postgres \"${file%/*}\" \"$file\"\n    # Into a new database first, swapped in only once it is whole: a copy\n    # that fails halfway leaves the one there now as it was.\n    new=\"$database\"__beatbox_back\n    sql --set new=\"$new\" --set owner=\"$owner\" <<'SQL'\nSELECT format('DROP DATABASE IF EXISTS %I', :'new') \\gexec\nSELECT format('CREATE DATABASE %I OWNER %I', :'new', :'owner') \\gexec\nSQL\n    if ! as_postgres \"$bin/pg_restore\" --host \"$data\" --port \"$port\" --dbname \"$new\" \\\n        --exit-on-error --no-owner --role \"$owner\" \"$file\"; then\n      sql --set new=\"$new\" <<'SQL' || true\nSELECT format('DROP DATABASE IF EXISTS %I', :'new') \\gexec\nSQL\n      exit 1\n    fi\n    sql --set old=\"$database\" --set new=\"$new\" <<'SQL'\nSELECT format('DROP DATABASE IF EXISTS %I WITH (FORCE)', :'old') \\gexec\nSELECT format('ALTER DATABASE %I RENAME TO %I', :'new', :'old') \\gexec\nSQL\n    ;;\n  *) exit 2;;\nesac\n",
+      "postgresql-copy",
+      "load",
+      "{bin_directory}",
+      "/var/lib/postgresql/beatbox/{_id}",
+      "{port}",
+      "{database}",
+      "{user}",
+      "{_copy}",
+      "{_made_with}"
+    ]
+  },
   "configuration": {
     "port": {
       "kind": "number",
